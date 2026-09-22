@@ -4,37 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#070707">
-  <meta name="description" content="Guess the Drain Gang song in daily or unlimited practice mode.">
-  <title>drainle practice</title>
+  <meta name="description" content="Guess the Drain Gang song in unlimited mode.">
+  <title>drainle unlimited</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="site-header">
     <button class="icon-button" id="helpButton" aria-label="How to play">?</button>
-    <div class="brand-wrap"><h1>drainle</h1><p>guess the drain gang song</p></div>
+    <div class="brand-wrap"><h1>drainle</h1><p>guess the drain gang song · unlimited</p></div>
     <button class="icon-button" id="statsButton" aria-label="View stats">▥</button>
   </header>
   <main class="game-shell">
-    <div class="mode-switch" role="tablist" aria-label="Game mode">
-      <button class="mode active" id="dailyMode" role="tab" aria-selected="true">daily</button>
-      <button class="mode" id="practiceMode" role="tab" aria-selected="false">practice ∞</button>
-    </div>
     <section class="game-panel" aria-labelledby="modeTitle">
-      <div class="round-meta"><span id="modeTitle">daily song</span><span id="roundLabel">resets at midnight</span></div>
+      <div class="round-meta"><span id="modeTitle">unlimited mode</span><span>practice without limits</span></div>
       <div class="search-wrap">
         <label class="sr-only" for="songSearch">Search for a song</label>
         <input id="songSearch" type="search" placeholder="search for a song..." autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="suggestions">
         <div id="suggestions" class="suggestions" role="listbox" hidden></div>
       </div>
       <button id="guessButton" class="guess-button" disabled>guess</button>
-      <div class="status-row"><span id="guessStatus">6 guesses remaining</span><button id="resetPuzzleButton" class="reset-button" hidden>reset puzzle ↻</button></div>
+      <div class="status-row"><span id="guessStatus">0 guesses · unlimited</span><button id="resetPuzzleButton" class="reset-button">new puzzle ↻</button></div>
       <div id="message" class="message" aria-live="polite"></div>
       <section id="completionPanel" class="completion-panel" aria-live="assertive" hidden>
         <div class="completion-mark" id="completionMark">correct ✓</div>
         <div class="answer-box" id="answerBox"></div>
         <p class="completion-summary" id="completionSummary"></p>
-        <button id="playAnotherButton" class="play-another-button" hidden>play another puzzle</button>
+        <div class="completion-actions">
+          <button id="shareResultsButton" class="share-results-button">share results</button>
+          <button id="playAnotherButton" class="play-another-button">play another puzzle</button>
+        </div>
       </section>
+      <p class="table-scroll-hint">swipe to see all columns →</p>
       <div class="table-wrap">
         <div class="guess-grid grid-header" aria-hidden="true"><div>song</div><div>artist</div><div>features</div><div>album</div><div>year</div><div>track #</div></div>
         <div id="guessRows" class="guess-rows"></div>
@@ -49,7 +49,7 @@
     <h2>how to play</h2>
     <p>Guess the hidden song. Each row compares your guess with the answer.</p>
     <ul><li><b class="text-exact">green</b> means exact.</li><li><b class="text-close">yellow</b> means the year or track number is close.</li><li><b class="text-far">red</b> means farther away.</li><li>Arrows point toward the correct year or track number.</li></ul>
-    <p>Daily mode gives everyone one song and six guesses. Practice mode has unlimited rounds and guesses.</p>
+    <p>Unlimited mode has unlimited rounds and guesses. Use “new puzzle” whenever you want a different song.</p>
   </dialog>
   <dialog id="statsDialog">
     <button class="dialog-close" data-close="statsDialog" aria-label="Close">×</button>
