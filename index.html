@@ -4,18 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#070707">
-  <meta name="description" content="Guess the Drain Gang song in unlimited mode.">
-  <title>blaidle unlimited</title>
+  <meta name="description" content="Play Blaidle in unlimited solo, competitive Versus, or two-player Co-op mode.">
+  <title>blaidle · unlimited and multiplayer</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="site-header">
     <button class="icon-button" id="helpButton" aria-label="How to play">?</button>
-    <div class="brand-wrap"><h1>blaidle</h1><p>guess the drain gang song · unlimited</p></div>
+    <div class="brand-wrap"><h1>blaidle</h1><p id="brandTagline">guess the drain gang song · unlimited</p></div>
     <button class="icon-button" id="statsButton" aria-label="View stats">▥</button>
   </header>
   <main class="game-shell">
-    <section class="game-panel" aria-labelledby="modeTitle">
+    <nav class="primary-nav" aria-label="Game modes">
+      <button class="nav-tab active" id="soloTab" aria-selected="true">unlimited</button>
+      <button class="nav-tab" id="multiplayerTab" aria-selected="false">multiplayer</button>
+    </nav>
+    <section class="game-panel" id="soloView" aria-labelledby="modeTitle">
       <div class="round-meta"><span id="modeTitle">unlimited mode</span><span>practice without limits</span></div>
       <div class="search-wrap">
         <label class="sr-only" for="songSearch">Search for a song</label>
@@ -40,6 +44,69 @@
         <div id="guessRows" class="guess-rows"></div>
       </div>
     </section>
+    <section class="multiplayer-panel" id="multiplayerView" hidden>
+      <div class="multiplayer-tabs" role="tablist" aria-label="Multiplayer modes">
+        <button class="multiplayer-tab active" id="versusTab" role="tab" aria-selected="true">versus</button>
+        <button class="multiplayer-tab" id="coopTab" role="tab" aria-selected="false">co-op</button>
+      </div>
+
+      <section id="multiplayerHome" class="multiplayer-card">
+        <div class="multiplayer-heading">
+          <div><span class="eyebrow" id="multiplayerModeLabel">1 versus 1</span><h2 id="multiplayerTitle">versus</h2></div>
+          <p id="multiplayerDescription">The same mystery song. Separate boards. Fewest guesses wins.</p>
+        </div>
+        <div id="backendNotice" class="backend-notice" hidden></div>
+        <label class="field-label" for="playerName">display name</label>
+        <input class="text-field" id="playerName" maxlength="20" autocomplete="nickname" placeholder="your name">
+        <div id="versusOptions" class="match-options">
+          <span>match length</span>
+          <div class="segmented-control">
+            <button class="segment active" data-rounds="1">1 round</button>
+            <button class="segment" data-rounds="3">best of 3</button>
+            <button class="segment" data-rounds="5">best of 5</button>
+          </div>
+        </div>
+        <div class="lobby-actions">
+          <button class="primary-action" id="createRoomButton">create game</button>
+          <div class="join-row"><input class="text-field room-code-input" id="joinCode" maxlength="5" placeholder="room code" aria-label="Room code"><button class="secondary-action" id="joinRoomButton">join game</button></div>
+        </div>
+        <p class="multiplayer-message" id="multiplayerMessage" aria-live="polite"></p>
+      </section>
+
+      <section id="roomLobby" class="multiplayer-card" hidden>
+        <div class="room-header"><div><span class="eyebrow">room code</span><strong id="roomCode">-----</strong></div><span class="connection-pill" id="connectionStatus">connecting</span></div>
+        <div class="invite-actions"><button class="secondary-action" id="copyInviteButton">copy invite link</button><button class="secondary-action" id="copyCodeButton">copy code</button></div>
+        <div class="player-list"><div class="player-card"><span>player 1</span><strong id="hostName">waiting...</strong><em id="hostStatus">not ready</em></div><div class="player-card"><span>player 2</span><strong id="guestName">waiting for player</strong><em id="guestStatus">not ready</em></div></div>
+        <div class="room-controls"><button class="primary-action" id="readyButton">ready</button><button class="primary-action" id="startMatchButton" hidden>start match</button><button class="text-action" id="leaveRoomButton">leave room</button></div>
+        <p class="multiplayer-message" id="lobbyMessage" aria-live="polite">The game starts after both players are ready.</p>
+      </section>
+
+      <section id="multiplayerGame" hidden>
+        <div class="match-bar"><div><span id="roundLabelMultiplayer">round 1</span><strong id="matchScore">0 — 0</strong></div><div class="opponent-progress"><span id="opponentName">opponent</span><strong id="opponentProgress">guess 0 · playing</strong></div></div>
+        <section class="game-panel multiplayer-game-panel">
+          <div id="coopLockStatus" class="coop-lock-status" hidden></div>
+          <div class="search-wrap" id="multiplayerSearchWrap">
+            <label class="sr-only" for="multiplayerSongSearch">Search for a song</label>
+            <input id="multiplayerSongSearch" type="search" placeholder="search for a song..." autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="multiplayerSuggestions">
+            <div id="multiplayerSuggestions" class="suggestions" role="listbox" hidden></div>
+          </div>
+          <button id="multiplayerGuessButton" class="guess-button" disabled>guess</button>
+          <div class="status-row"><span id="multiplayerGuessStatus">6 guesses remaining</span><button class="reset-button" id="multiplayerLeaveButton">leave room</button></div>
+          <div id="coopDecision" class="coop-decision" hidden><span class="eyebrow">choose the team answer</span><div id="coopChoices" class="coop-choices"></div><p id="coopDecisionStatus"></p></div>
+          <div id="multiplayerGameMessage" class="message" aria-live="polite"></div>
+          <p class="table-scroll-hint">swipe to see all columns →</p>
+          <div class="table-wrap"><div class="guess-grid grid-header" aria-hidden="true"><div>song</div><div>artist</div><div>features</div><div>album</div><div>year</div><div>track #</div></div><div id="multiplayerGuessRows" class="guess-rows"></div></div>
+        </section>
+      </section>
+
+      <section id="roundResults" class="completion-panel multiplayer-results" hidden>
+        <div class="completion-mark" id="multiplayerResultTitle">round complete</div>
+        <div class="answer-box" id="multiplayerAnswer"></div>
+        <div id="resultComparison" class="result-comparison"></div>
+        <p class="completion-summary" id="multiplayerResultSummary"></p>
+        <div class="completion-actions"><button class="share-results-button" id="multiplayerShareButton">share results</button><button class="play-another-button" id="nextRoundButton">next round</button><button class="play-another-button" id="rematchButton" hidden>rematch</button><button class="text-action" id="returnMultiplayerButton">return to multiplayer</button></div>
+      </section>
+    </section>
     <section class="legend" aria-label="Answer key">
       <span><i class="swatch exact"></i>exact</span><span><i class="swatch close"></i>close</span><span><i class="swatch far"></i>far</span><span>↑ answer is higher</span><span>↓ answer is lower</span>
     </section>
@@ -58,5 +125,8 @@
   </dialog>
   <script src="./songs.js"></script>
   <script src="./app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
+  <script src="./multiplayer.js"></script>
 </body>
 </html>
