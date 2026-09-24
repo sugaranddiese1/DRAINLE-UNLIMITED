@@ -191,8 +191,8 @@ begin
   select count(*)::integer+1 into v_count from public.blaidle_guesses where room_id=v_room.id and round_number=v_room.current_round and user_id=auth.uid();
   v_correct:=p_song_id=v_target; v_feedback:=public.blaidle_feedback(p_song_id,v_target);
   insert into public.blaidle_guesses(room_id,round_number,user_id,shared,guess_number,song_id,feedback,correct) values(v_room.id,v_room.current_round,auth.uid(),false,v_count,p_song_id,v_feedback,v_correct);
-  if v_side='host' then update public.blaidle_rooms set host_guess_count=v_count,host_outcome=case when v_correct then 'solved' when v_count>=6 then 'failed' else 'playing' end where id=v_room.id;
-  else update public.blaidle_rooms set guest_guess_count=v_count,guest_outcome=case when v_correct then 'solved' when v_count>=6 then 'failed' else 'playing' end where id=v_room.id; end if;
+  if v_side='host' then update public.blaidle_rooms set host_guess_count=v_count,host_outcome=case when v_correct then 'solved' when v_count>=10 then 'failed' else 'playing' end where id=v_room.id;
+  else update public.blaidle_rooms set guest_guess_count=v_count,guest_outcome=case when v_correct then 'solved' when v_count>=10 then 'failed' else 'playing' end where id=v_room.id; end if;
   select * into v_room from public.blaidle_rooms where id=v_room.id;
   if v_room.host_outcome<>'playing' and v_room.guest_outcome<>'playing' then
     if v_room.host_outcome='solved' and v_room.guest_outcome='solved' then v_winner:=case when v_room.host_guess_count<v_room.guest_guess_count then 'host' when v_room.guest_guess_count<v_room.host_guess_count then 'guest' else 'tie' end;
@@ -241,7 +241,7 @@ begin
     v_count:=v_room.coop_guess_count+1; v_correct:=p_song_id=v_target; v_feedback:=public.blaidle_feedback(p_song_id,v_target);
     insert into public.blaidle_guesses(room_id,round_number,user_id,shared,guess_number,song_id,feedback,correct) values(v_room.id,v_room.current_round,null,true,v_count,p_song_id,v_feedback,v_correct);
     delete from public.blaidle_proposals where room_id=v_room.id and round_number=v_room.current_round;
-    if v_correct or v_count>=6 then update public.blaidle_rooms set coop_guess_count=v_count,coop_outcome=case when v_correct then 'solved' else 'failed' end,status='results',answer_song_id=v_target,host_locked=false,guest_locked=false,coop_proposal_host=null,coop_proposal_guest=null,host_confirm=null,guest_confirm=null where id=v_room.id;
+    if v_correct or v_count>=10 then update public.blaidle_rooms set coop_guess_count=v_count,coop_outcome=case when v_correct then 'solved' else 'failed' end,status='results',answer_song_id=v_target,host_locked=false,guest_locked=false,coop_proposal_host=null,coop_proposal_guest=null,host_confirm=null,guest_confirm=null where id=v_room.id;
     else update public.blaidle_rooms set coop_guess_count=v_count,host_locked=false,guest_locked=false,coop_proposal_host=null,coop_proposal_guest=null,host_confirm=null,guest_confirm=null where id=v_room.id; end if;
   end if;
 end $$;
