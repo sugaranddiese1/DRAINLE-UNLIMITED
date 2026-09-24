@@ -94,8 +94,17 @@
           <div class="status-row"><span id="multiplayerGuessStatus">10 guesses remaining</span><button class="reset-button" id="multiplayerLeaveButton">leave room</button></div>
           <div id="coopDecision" class="coop-decision" hidden><span class="eyebrow">choose the team answer</span><div id="coopChoices" class="coop-choices"></div><p id="coopDecisionStatus"></p></div>
           <div id="multiplayerGameMessage" class="message" aria-live="polite"></div>
-          <p class="table-scroll-hint">swipe to see all columns →</p>
-          <div class="table-wrap"><div class="guess-grid grid-header" aria-hidden="true"><div>song</div><div>artist</div><div>features</div><div>album</div><div>year</div><div>track #</div></div><div id="multiplayerGuessRows" class="guess-rows"></div></div>
+          <div class="versus-board-layout" id="versusBoardLayout">
+            <div class="own-board">
+              <p class="table-scroll-hint">swipe to see all columns →</p>
+              <div class="table-wrap"><div class="guess-grid grid-header" aria-hidden="true"><div>song</div><div>artist</div><div>features</div><div>album</div><div>year</div><div>track #</div></div><div id="multiplayerGuessRows" class="guess-rows"></div></div>
+            </div>
+            <aside class="opponent-board" id="opponentBoard" aria-live="polite">
+              <div class="opponent-board-heading"><span class="eyebrow">opponent's hidden board</span><strong id="opponentBoardName">opponent</strong></div>
+              <div class="opponent-feedback-rows" id="opponentFeedbackRows"></div>
+              <p class="opponent-board-note">feedback only · song names hidden</p>
+            </aside>
+          </div>
         </section>
       </section>
 
