@@ -253,6 +253,19 @@ language sql stable security definer set search_path=public as $$
   where r.code=upper(p_code) and g.round_number=r.current_round and (r.host_id=auth.uid() or r.guest_id=auth.uid()) and (g.shared or g.user_id=auth.uid())
 $$;
 
+create or replace function public.get_blaidle_opponent_progress(p_code text) returns jsonb
+language sql stable security definer set search_path=public as $
+  with room as (
+    select * from public.blaidle_rooms
+    where code=upper(p_code) and mode='versus' and (host_id=auth.uid() or guest_id=auth.uid())
+  )
+  select coalesce(jsonb_agg(g.feedback->'states' order by g.guess_number),'[]'::jsonb)
+  from public.blaidle_guesses g cross join room r
+  where g.room_id=r.id
+    and g.round_number=r.current_round
+    and g.user_id=case when r.host_id=auth.uid() then r.guest_id else r.host_id end
+$;
+
 create or replace function public.get_blaidle_match_summary(p_code text) returns jsonb
 language sql stable security definer set search_path=public as $$
   with room as (
@@ -296,5 +309,5 @@ language plpgsql security definer set search_path=public as $$
 begin delete from public.blaidle_rooms where code=upper(p_code) and (host_id=auth.uid() or guest_id=auth.uid()); end $$;
 
 revoke all on function public.blaidle_feedback(integer,integer) from public,anon,authenticated;
-revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) from public,anon;
-grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) to authenticated;
+revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) from public,anon;
+grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) to authenticated;
