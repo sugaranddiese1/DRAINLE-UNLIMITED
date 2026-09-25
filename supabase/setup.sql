@@ -17,7 +17,7 @@ create table if not exists public.blaidle_songs (
 create table if not exists public.blaidle_rooms (
   id uuid primary key default gen_random_uuid(),
   code text not null unique check (code ~ '^[A-Z0-9]{5}$'),
-  mode text not null check (mode in ('versus','coop')),
+  mode text not null check (mode in ('versus','coop','challenge')),
   match_length integer not null default 1 check (match_length in (1,3,5)),
   catalog_size integer not null,
   host_id uuid not null,
@@ -44,9 +44,14 @@ create table if not exists public.blaidle_rooms (
   coop_proposal_guest integer references public.blaidle_songs(id),
   host_confirm integer references public.blaidle_songs(id),
   guest_confirm integer references public.blaidle_songs(id),
+  challenge_target_set boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.blaidle_rooms add column if not exists challenge_target_set boolean not null default false;
+alter table public.blaidle_rooms drop constraint if exists blaidle_rooms_mode_check;
+alter table public.blaidle_rooms add constraint blaidle_rooms_mode_check check (mode in ('versus','coop','challenge'));
 
 create table if not exists public.blaidle_targets (
   room_id uuid not null references public.blaidle_rooms(id) on delete cascade,
@@ -130,18 +135,25 @@ language sql stable security definer set search_path=public as $$
 $$;
 
 create or replace function public.create_blaidle_room(p_mode text,p_name text,p_match_length integer,p_catalog_size integer) returns text
-language plpgsql security definer set search_path=public as $$
+language plpgsql security definer set search_path=public as $fn$
 declare v_code text; tries integer:=0;
 begin
   if auth.uid() is null then raise exception 'Sign in is required'; end if;
-  if p_mode not in ('versus','coop') then raise exception 'Invalid mode'; end if;
+  if p_mode not in ('versus','coop','challenge') then raise exception 'Invalid mode'; end if;
   if p_match_length not in (1,3,5) then raise exception 'Invalid match length'; end if;
   if char_length(trim(p_name)) not between 1 and 20 then raise exception 'Enter a display name'; end if;
   if p_catalog_size<>(select count(*) from public.blaidle_songs) then raise exception 'Song catalog needs to be synchronized'; end if;
-  loop v_code:=public.blaidle_room_code(); exit when not exists(select 1 from public.blaidle_rooms where code=v_code); tries:=tries+1; if tries>20 then raise exception 'Could not generate room code'; end if; end loop;
-  insert into public.blaidle_rooms(code,mode,match_length,catalog_size,host_id,host_name) values(v_code,p_mode,case when p_mode='coop' then 1 else p_match_length end,p_catalog_size,auth.uid(),trim(p_name));
+  loop
+    v_code:=public.blaidle_room_code();
+    exit when not exists(select 1 from public.blaidle_rooms where code=v_code);
+    tries:=tries+1;
+    if tries>20 then raise exception 'Could not generate room code'; end if;
+  end loop;
+  insert into public.blaidle_rooms(code,mode,match_length,catalog_size,host_id,host_name)
+  values(v_code,p_mode,case when p_mode='versus' then p_match_length else 1 end,p_catalog_size,auth.uid(),trim(p_name));
   return v_code;
-end $$;
+end
+$fn$;
 
 create or replace function public.join_blaidle_room(p_code text,p_name text) returns text
 language plpgsql security definer set search_path=public as $$
@@ -158,23 +170,58 @@ begin
 end $$;
 
 create or replace function public.set_blaidle_ready(p_code text,p_ready boolean) returns void
-language plpgsql security definer set search_path=public as $$
+language plpgsql security definer set search_path=public as $fn$
+declare v_room public.blaidle_rooms;
 begin
-  update public.blaidle_rooms set host_ready=case when host_id=auth.uid() then p_ready else host_ready end,guest_ready=case when guest_id=auth.uid() then p_ready else guest_ready end where code=upper(p_code) and status='lobby' and (host_id=auth.uid() or guest_id=auth.uid());
-  if not found then raise exception 'Room is unavailable'; end if;
-end $$;
+  select * into v_room from public.blaidle_rooms where code=upper(p_code) for update;
+  if not found or auth.uid() not in (v_room.host_id,v_room.guest_id) then raise exception 'Room is unavailable'; end if;
+  if v_room.status<>'lobby' then raise exception 'Room is unavailable'; end if;
+  if v_room.mode='challenge' and v_room.host_id=auth.uid() and p_ready and not v_room.challenge_target_set then
+    raise exception 'Choose a secret song first';
+  end if;
+  update public.blaidle_rooms
+  set host_ready=case when host_id=auth.uid() then p_ready else host_ready end,
+      guest_ready=case when guest_id=auth.uid() then p_ready else guest_ready end
+  where id=v_room.id;
+end
+$fn$;
+
+create or replace function public.set_blaidle_challenge_song(p_code text,p_song_id integer) returns void
+language plpgsql security definer set search_path=public as $fn$
+declare v_room public.blaidle_rooms;
+begin
+  select * into v_room from public.blaidle_rooms where code=upper(p_code) for update;
+  if not found or v_room.host_id<>auth.uid() then raise exception 'Only the selector can choose the song'; end if;
+  if v_room.mode<>'challenge' or v_room.status<>'lobby' then raise exception 'The secret song cannot be changed now'; end if;
+  if not exists(select 1 from public.blaidle_songs where id=p_song_id) then raise exception 'Song not found'; end if;
+  delete from public.blaidle_targets where room_id=v_room.id and round_number=1;
+  insert into public.blaidle_targets(room_id,round_number,song_id) values(v_room.id,1,p_song_id);
+  update public.blaidle_rooms set challenge_target_set=true,host_ready=false where id=v_room.id;
+end
+$fn$;
 
 create or replace function public.start_blaidle_match(p_code text) returns void
-language plpgsql security definer set search_path=public as $$
+language plpgsql security definer set search_path=public as $fn$
 declare v_room public.blaidle_rooms; v_target integer;
 begin
   select * into v_room from public.blaidle_rooms where code=upper(p_code) for update;
   if v_room.host_id<>auth.uid() then raise exception 'Only the host can start'; end if;
   if v_room.status<>'lobby' or not v_room.host_ready or not v_room.guest_ready then raise exception 'Both players must be ready'; end if;
-  select id into v_target from public.blaidle_songs order by random() limit 1;
-  insert into public.blaidle_targets(room_id,round_number,song_id) values(v_room.id,1,v_target);
-  update public.blaidle_rooms set status='playing',current_round=1,host_guess_count=0,guest_guess_count=0,host_outcome='playing',guest_outcome='playing',round_winner=null,answer_song_id=null,coop_guess_count=0,coop_outcome='playing',host_locked=false,guest_locked=false,coop_proposal_host=null,coop_proposal_guest=null,host_confirm=null,guest_confirm=null where id=v_room.id;
-end $$;
+  if v_room.mode='challenge' then
+    select song_id into v_target from public.blaidle_targets where room_id=v_room.id and round_number=1;
+    if not v_room.challenge_target_set or v_target is null then raise exception 'Choose a secret song first'; end if;
+  else
+    select id into v_target from public.blaidle_songs order by random() limit 1;
+    insert into public.blaidle_targets(room_id,round_number,song_id) values(v_room.id,1,v_target);
+  end if;
+  update public.blaidle_rooms
+  set status='playing',current_round=1,host_guess_count=0,guest_guess_count=0,
+      host_outcome='playing',guest_outcome='playing',round_winner=null,answer_song_id=null,
+      coop_guess_count=0,coop_outcome='playing',host_locked=false,guest_locked=false,
+      coop_proposal_host=null,coop_proposal_guest=null,host_confirm=null,guest_confirm=null
+  where id=v_room.id;
+end
+$fn$;
 
 create or replace function public.submit_blaidle_versus_guess(p_code text,p_song_id integer) returns jsonb
 language plpgsql security definer set search_path=public as $$
@@ -203,6 +250,42 @@ begin
   end if;
   return v_feedback||jsonb_build_object('correct',v_correct,'guess_count',v_count);
 end $$;
+
+create or replace function public.submit_blaidle_challenge_guess(p_code text,p_song_id integer) returns jsonb
+language plpgsql security definer set search_path=public as $fn$
+declare v_room public.blaidle_rooms; v_target integer; v_count integer; v_correct boolean; v_feedback jsonb;
+begin
+  select * into v_room from public.blaidle_rooms where code=upper(p_code) for update;
+  if not found or v_room.mode<>'challenge' or v_room.status<>'playing' then raise exception 'Challenge is not accepting guesses'; end if;
+  if v_room.guest_id is null or v_room.guest_id<>auth.uid() then raise exception 'Only the guesser can submit guesses'; end if;
+  if v_room.guest_outcome<>'playing' then raise exception 'The challenge is complete'; end if;
+  if not exists(select 1 from public.blaidle_songs where id=p_song_id) then raise exception 'Song not found'; end if;
+  if exists(
+    select 1 from public.blaidle_guesses
+    where room_id=v_room.id and round_number=1 and user_id=auth.uid() and song_id=p_song_id
+  ) then raise exception 'You already guessed that song'; end if;
+  select song_id into v_target from public.blaidle_targets where room_id=v_room.id and round_number=1;
+  if v_target is null then raise exception 'Secret song is unavailable'; end if;
+  select count(*)::integer+1 into v_count
+  from public.blaidle_guesses where room_id=v_room.id and round_number=1 and user_id=auth.uid();
+  v_correct:=p_song_id=v_target;
+  v_feedback:=public.blaidle_feedback(p_song_id,v_target);
+  insert into public.blaidle_guesses(room_id,round_number,user_id,shared,guess_number,song_id,feedback,correct)
+  values(v_room.id,1,auth.uid(),false,v_count,p_song_id,v_feedback,v_correct);
+  if v_correct or v_count>=10 then
+    update public.blaidle_rooms
+    set guest_guess_count=v_count,
+        guest_outcome=case when v_correct then 'solved' else 'failed' end,
+        round_winner=case when v_correct then 'guest' else 'host' end,
+        answer_song_id=v_target,
+        status='results'
+    where id=v_room.id;
+  else
+    update public.blaidle_rooms set guest_guess_count=v_count where id=v_room.id;
+  end if;
+  return v_feedback||jsonb_build_object('correct',v_correct,'guess_count',v_count);
+end
+$fn$;
 
 create or replace function public.lock_blaidle_coop_proposal(p_code text,p_song_id integer) returns void
 language plpgsql security definer set search_path=public as $$
@@ -254,17 +337,19 @@ language sql stable security definer set search_path=public as $$
 $$;
 
 create or replace function public.get_blaidle_opponent_progress(p_code text) returns jsonb
-language sql stable security definer set search_path=public as $
+language sql stable security definer set search_path=public as $fn$
   with room as (
     select * from public.blaidle_rooms
-    where code=upper(p_code) and mode='versus' and (host_id=auth.uid() or guest_id=auth.uid())
+    where code=upper(p_code)
+      and mode in ('versus','challenge')
+      and (host_id=auth.uid() or guest_id=auth.uid())
   )
   select coalesce(jsonb_agg(g.feedback->'states' order by g.guess_number),'[]'::jsonb)
   from public.blaidle_guesses g cross join room r
   where g.room_id=r.id
     and g.round_number=r.current_round
     and g.user_id=case when r.host_id=auth.uid() then r.guest_id else r.host_id end
-$;
+$fn$;
 
 create or replace function public.get_blaidle_match_summary(p_code text) returns jsonb
 language sql stable security definer set search_path=public as $$
@@ -294,20 +379,39 @@ begin
 end $$;
 
 create or replace function public.rematch_blaidle(p_code text) returns void
-language plpgsql security definer set search_path=public as $$
+language plpgsql security definer set search_path=public as $fn$
 declare v_room public.blaidle_rooms; v_target integer;
 begin
   select * into v_room from public.blaidle_rooms where code=upper(p_code) for update;
   if v_room.host_id<>auth.uid() or v_room.status not in ('match_results','results') then raise exception 'Rematch is not available'; end if;
-  delete from public.blaidle_targets where room_id=v_room.id; delete from public.blaidle_guesses where room_id=v_room.id; delete from public.blaidle_proposals where room_id=v_room.id;
-  select id into v_target from public.blaidle_songs order by random() limit 1; insert into public.blaidle_targets(room_id,round_number,song_id) values(v_room.id,1,v_target);
-  update public.blaidle_rooms set status='playing',current_round=1,host_score=0,guest_score=0,host_guess_count=0,guest_guess_count=0,host_outcome='playing',guest_outcome='playing',round_winner=null,answer_song_id=null,coop_guess_count=0,coop_outcome='playing',host_locked=false,guest_locked=false,coop_proposal_host=null,coop_proposal_guest=null,host_confirm=null,guest_confirm=null where id=v_room.id;
-end $$;
+  delete from public.blaidle_targets where room_id=v_room.id;
+  delete from public.blaidle_guesses where room_id=v_room.id;
+  delete from public.blaidle_proposals where room_id=v_room.id;
+  if v_room.mode='challenge' then
+    update public.blaidle_rooms
+    set status='lobby',current_round=0,host_score=0,guest_score=0,
+        host_guess_count=0,guest_guess_count=0,host_outcome='playing',guest_outcome='playing',
+        round_winner=null,answer_song_id=null,challenge_target_set=false,
+        host_ready=false,guest_ready=false
+    where id=v_room.id;
+    return;
+  end if;
+  select id into v_target from public.blaidle_songs order by random() limit 1;
+  insert into public.blaidle_targets(room_id,round_number,song_id) values(v_room.id,1,v_target);
+  update public.blaidle_rooms
+  set status='playing',current_round=1,host_score=0,guest_score=0,
+      host_guess_count=0,guest_guess_count=0,host_outcome='playing',guest_outcome='playing',
+      round_winner=null,answer_song_id=null,coop_guess_count=0,coop_outcome='playing',
+      host_locked=false,guest_locked=false,coop_proposal_host=null,coop_proposal_guest=null,
+      host_confirm=null,guest_confirm=null
+  where id=v_room.id;
+end
+$fn$;
 
 create or replace function public.leave_blaidle_room(p_code text) returns void
 language plpgsql security definer set search_path=public as $$
 begin delete from public.blaidle_rooms where code=upper(p_code) and (host_id=auth.uid() or guest_id=auth.uid()); end $$;
 
 revoke all on function public.blaidle_feedback(integer,integer) from public,anon,authenticated;
-revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) from public,anon;
-grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) to authenticated;
+revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) from public,anon;
+grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) to authenticated;
