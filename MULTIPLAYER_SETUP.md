@@ -6,7 +6,7 @@ Blaidle stays a static GitHub Pages site. Supabase supplies anonymous authentica
 
 1. Create a free project at https://supabase.com/dashboard.
 2. In **Authentication → Providers → Anonymous**, enable anonymous sign-ins.
-3. Open **SQL Editor**, run `supabase/setup.sql`, and then run `supabase/seed-songs.sql`. If multiplayer was already installed with the old six-guess limit, run `supabase/update-guess-limit-to-10.sql` once instead.
+3. Open **SQL Editor**, run `supabase/setup.sql`, and then run `supabase/seed-songs.sql`. For an existing multiplayer installation, run `supabase/add-song-challenge-mode.sql` once; it includes the ten-guess update.
 4. Open **Project Settings → API** and copy the Project URL and publishable/anon key.
 5. Paste those two public values into `supabase-config.js`:
 
@@ -30,5 +30,7 @@ When `songs.js` changes, regenerate `supabase/seed-songs.sql` from the same orde
 - Versus supports one round, best of three, and best of five.
 - Both players receive the same server-selected song and have ten guesses.
 - Opponents see progress but not song names during an active round.
+- Challenge lets the room creator privately select a song while the invited guesser gets ten attempts.
+- The selector can watch censored color feedback without exposing the guesser’s song choices.
 - Co-op requires exactly two players. Both lock a proposal before either answer is revealed.
 - When proposals differ, both players must confirm the same choice before the shared guess is consumed.
