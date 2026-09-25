@@ -174,7 +174,7 @@ language plpgsql security definer set search_path=public as $fn$
 declare v_room public.blaidle_rooms;
 begin
   select * into v_room from public.blaidle_rooms where code=upper(p_code) for update;
-  if not found or auth.uid() not in (v_room.host_id,v_room.guest_id) then raise exception 'Room is unavailable'; end if;
+  if not found or (auth.uid()<>v_room.host_id and (v_room.guest_id is null or auth.uid()<>v_room.guest_id)) then raise exception 'Room is unavailable'; end if;
   if v_room.status<>'lobby' then raise exception 'Room is unavailable'; end if;
   if v_room.mode='challenge' and v_room.host_id=auth.uid() and p_ready and not v_room.challenge_target_set then
     raise exception 'Choose a secret song first';
