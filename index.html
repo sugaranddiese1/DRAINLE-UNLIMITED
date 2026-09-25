@@ -48,6 +48,7 @@
       <div class="multiplayer-tabs" role="tablist" aria-label="Multiplayer modes">
         <button class="multiplayer-tab active" id="versusTab" role="tab" aria-selected="true">versus</button>
         <button class="multiplayer-tab" id="coopTab" role="tab" aria-selected="false">co-op</button>
+        <button class="multiplayer-tab" id="challengeTab" role="tab" aria-selected="false">challenge</button>
       </div>
 
       <section id="multiplayerHome" class="multiplayer-card">
@@ -76,7 +77,18 @@
       <section id="roomLobby" class="multiplayer-card" hidden>
         <div class="room-header"><div><span class="eyebrow">room code</span><strong id="roomCode">-----</strong></div><span class="connection-pill" id="connectionStatus">connecting</span></div>
         <div class="invite-actions"><button class="secondary-action" id="copyInviteButton">copy invite link</button><button class="secondary-action" id="copyCodeButton">copy code</button></div>
-        <div class="player-list"><div class="player-card"><span>player 1</span><strong id="hostName">waiting...</strong><em id="hostStatus">not ready</em></div><div class="player-card"><span>player 2</span><strong id="guestName">waiting for player</strong><em id="guestStatus">not ready</em></div></div>
+        <div class="player-list"><div class="player-card"><span id="hostRole">player 1</span><strong id="hostName">waiting...</strong><em id="hostStatus">not ready</em></div><div class="player-card"><span id="guestRole">player 2</span><strong id="guestName">waiting for player</strong><em id="guestStatus">not ready</em></div></div>
+        <div class="challenge-song-picker" id="challengeSongPicker" hidden>
+          <span class="eyebrow">choose the secret song</span>
+          <div class="search-wrap" id="challengeSearchWrap">
+            <label class="sr-only" for="challengeSongSearch">Search for the secret song</label>
+            <input id="challengeSongSearch" type="search" placeholder="search for a song..." autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="challengeSuggestions">
+            <div id="challengeSuggestions" class="suggestions" role="listbox" hidden></div>
+          </div>
+          <button class="secondary-action challenge-lock-button" id="lockChallengeSongButton" disabled>lock secret song</button>
+          <p id="challengeSongStatus">Only you will see the song you select.</p>
+        </div>
+        <div class="challenge-waiting" id="challengeWaiting" hidden>the selector is choosing a secret song...</div>
         <div class="room-controls"><button class="primary-action" id="readyButton">ready</button><button class="primary-action" id="startMatchButton" hidden>start match</button><button class="text-action" id="leaveRoomButton">leave room</button></div>
         <p class="multiplayer-message" id="lobbyMessage" aria-live="polite">The game starts after both players are ready.</p>
       </section>
@@ -85,6 +97,7 @@
         <div class="match-bar"><div><span id="roundLabelMultiplayer">round 1</span><strong id="matchScore">0 — 0</strong></div><div class="opponent-progress"><span id="opponentName">opponent</span><strong id="opponentProgress">guess 0 · playing</strong></div></div>
         <section class="game-panel multiplayer-game-panel">
           <div id="coopLockStatus" class="coop-lock-status" hidden></div>
+          <div id="challengeWatcher" class="challenge-watcher" hidden>your secret song is locked · watch the guesser's progress</div>
           <div class="search-wrap" id="multiplayerSearchWrap">
             <label class="sr-only" for="multiplayerSongSearch">Search for a song</label>
             <input id="multiplayerSongSearch" type="search" placeholder="search for a song..." autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="multiplayerSuggestions">
@@ -95,7 +108,7 @@
           <div id="coopDecision" class="coop-decision" hidden><span class="eyebrow">choose the team answer</span><div id="coopChoices" class="coop-choices"></div><p id="coopDecisionStatus"></p></div>
           <div id="multiplayerGameMessage" class="message" aria-live="polite"></div>
           <div class="versus-board-layout" id="versusBoardLayout">
-            <div class="own-board">
+            <div class="own-board" id="multiplayerOwnBoard">
               <p class="table-scroll-hint">swipe to see all columns →</p>
               <div class="table-wrap"><div class="guess-grid grid-header" aria-hidden="true"><div>song</div><div>artist</div><div>features</div><div>album</div><div>year</div><div>track #</div></div><div id="multiplayerGuessRows" class="guess-rows"></div></div>
             </div>
