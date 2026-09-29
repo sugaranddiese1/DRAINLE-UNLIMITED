@@ -1,3 +1,7 @@
+-- Blaidle room chat and 30-second automatic guess update.
+-- Run this entire file once in the Supabase SQL Editor.
+-- It includes all earlier multiplayer migrations.
+
 -- Blaidle song challenge migration.
 -- Run this entire file once in the Supabase SQL Editor.
 -- It also reapplies the ten-guess multiplayer limit safely.
@@ -240,3 +244,53 @@ $fn$;
 
 revoke execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_opponent_progress(text) from public,anon;
 grant execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_opponent_progress(text) to authenticated;
+
+-- Realtime room chat for Blaidle.
+create table if not exists public.blaidle_messages (
+  id bigint generated always as identity primary key,
+  room_id uuid not null references public.blaidle_rooms(id) on delete cascade,
+  user_id uuid not null,
+  sender_name text not null,
+  message text not null check (char_length(message) between 1 and 300),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists blaidle_messages_room_created_idx on public.blaidle_messages(room_id,created_at);
+alter table public.blaidle_messages enable row level security;
+
+drop policy if exists "room members read messages" on public.blaidle_messages;
+create policy "room members read messages" on public.blaidle_messages for select to authenticated using (
+  exists(select 1 from public.blaidle_rooms r where r.id=room_id and (r.host_id=auth.uid() or r.guest_id=auth.uid()))
+);
+
+revoke all on public.blaidle_messages from anon;
+revoke insert,update,delete on public.blaidle_messages from authenticated;
+grant select on public.blaidle_messages to authenticated;
+
+do $$ begin
+  alter publication supabase_realtime add table public.blaidle_messages;
+exception when duplicate_object then null;
+end $$;
+
+create or replace function public.send_blaidle_message(p_code text,p_message text) returns void
+language plpgsql security definer set search_path=public as $fn$
+declare v_room public.blaidle_rooms; v_name text; v_message text;
+begin
+  select * into v_room from public.blaidle_rooms where code=upper(trim(p_code));
+  if not found or (auth.uid()<>v_room.host_id and (v_room.guest_id is null or auth.uid()<>v_room.guest_id)) then
+    raise exception 'You are not in this room';
+  end if;
+  v_message:=trim(p_message);
+  if char_length(v_message) not between 1 and 300 then raise exception 'Message must be 1 to 300 characters'; end if;
+  if exists(
+    select 1 from public.blaidle_messages
+    where room_id=v_room.id and user_id=auth.uid() and created_at>now()-interval '1 second'
+  ) then raise exception 'Wait a moment before sending another message'; end if;
+  v_name:=case when v_room.host_id=auth.uid() then v_room.host_name else v_room.guest_name end;
+  insert into public.blaidle_messages(room_id,user_id,sender_name,message)
+  values(v_room.id,auth.uid(),coalesce(v_name,'player'),v_message);
+end
+$fn$;
+
+revoke execute on function public.send_blaidle_message(text,text) from public,anon;
+grant execute on function public.send_blaidle_message(text,text) to authenticated;
