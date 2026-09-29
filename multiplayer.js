@@ -4,10 +4,10 @@
   const configured=Boolean(config.url&&config.anonKey&&window.supabase?.createClient);
   const client=configured?window.supabase.createClient(config.url,config.anonKey):null;
   const $=selector=>document.querySelector(selector);
-  const els={soloTab:$("#soloTab"),multiplayerTab:$("#multiplayerTab"),soloView:$("#soloView"),multiplayerView:$("#multiplayerView"),brandTagline:$("#brandTagline"),versusTab:$("#versusTab"),coopTab:$("#coopTab"),challengeTab:$("#challengeTab"),home:$("#multiplayerHome"),roomExperience:$("#roomExperience"),modeLabel:$("#multiplayerModeLabel"),title:$("#multiplayerTitle"),description:$("#multiplayerDescription"),backendNotice:$("#backendNotice"),playerName:$("#playerName"),versusOptions:$("#versusOptions"),create:$("#createRoomButton"),join:$("#joinRoomButton"),joinCode:$("#joinCode"),message:$("#multiplayerMessage"),lobby:$("#roomLobby"),roomCode:$("#roomCode"),connection:$("#connectionStatus"),copyInvite:$("#copyInviteButton"),copyCode:$("#copyCodeButton"),hostRole:$("#hostRole"),guestRole:$("#guestRole"),hostName:$("#hostName"),guestName:$("#guestName"),hostStatus:$("#hostStatus"),guestStatus:$("#guestStatus"),challengePicker:$("#challengeSongPicker"),challengeSearch:$("#challengeSongSearch"),challengeSuggestions:$("#challengeSuggestions"),challengeLock:$("#lockChallengeSongButton"),challengeStatus:$("#challengeSongStatus"),challengeWaiting:$("#challengeWaiting"),ready:$("#readyButton"),start:$("#startMatchButton"),leave:$("#leaveRoomButton"),lobbyMessage:$("#lobbyMessage"),game:$("#multiplayerGame"),challengeWatcher:$("#challengeWatcher"),roundLabel:$("#roundLabelMultiplayer"),matchScore:$("#matchScore"),opponentName:$("#opponentName"),opponentProgress:$("#opponentProgress"),coopLock:$("#coopLockStatus"),searchWrap:$("#multiplayerSearchWrap"),search:$("#multiplayerSongSearch"),suggestions:$("#multiplayerSuggestions"),guess:$("#multiplayerGuessButton"),guessStatus:$("#multiplayerGuessStatus"),gameLeave:$("#multiplayerLeaveButton"),coopDecision:$("#coopDecision"),coopChoices:$("#coopChoices"),coopDecisionStatus:$("#coopDecisionStatus"),gameMessage:$("#multiplayerGameMessage"),guessTimer:$("#guessTimer"),guessTimerValue:$("#guessTimerValue"),guessTimerBar:$("#guessTimerBar"),boardLayout:$("#versusBoardLayout"),ownBoard:$("#multiplayerOwnBoard"),boardCaption:$("#guessBoardCaption"),opponentBoard:$("#opponentBoard"),opponentBoardName:$("#opponentBoardName"),opponentFeedbackRows:$("#opponentFeedbackRows"),rows:$("#multiplayerGuessRows"),results:$("#roundResults"),resultTitle:$("#multiplayerResultTitle"),answer:$("#multiplayerAnswer"),comparison:$("#resultComparison"),resultSummary:$("#multiplayerResultSummary"),share:$("#multiplayerShareButton"),next:$("#nextRoundButton"),rematch:$("#rematchButton"),return:$("#returnMultiplayerButton"),chat:$("#roomChat"),chatMessages:$("#chatMessages"),chatInput:$("#chatInput"),chatSend:$("#chatSendButton"),chatStatus:$("#chatStatus")};
+  const els={soloTab:$("#soloTab"),multiplayerTab:$("#multiplayerTab"),soloView:$("#soloView"),multiplayerView:$("#multiplayerView"),brandTagline:$("#brandTagline"),versusTab:$("#versusTab"),coopTab:$("#coopTab"),challengeTab:$("#challengeTab"),home:$("#multiplayerHome"),roomExperience:$("#roomExperience"),modeLabel:$("#multiplayerModeLabel"),title:$("#multiplayerTitle"),description:$("#multiplayerDescription"),backendNotice:$("#backendNotice"),playerName:$("#playerName"),roomSettings:$("#roomSettings"),timerOptions:$("#timerOptions"),blurRow:$("#blurAnswersRow"),blurAnswers:$("#blurAnswersSetting"),highlightClose:$("#highlightCloseSetting"),showArrows:$("#showArrowsSetting"),versusOptions:$("#versusOptions"),create:$("#createRoomButton"),join:$("#joinRoomButton"),joinCode:$("#joinCode"),message:$("#multiplayerMessage"),lobby:$("#roomLobby"),roomCode:$("#roomCode"),connection:$("#connectionStatus"),copyInvite:$("#copyInviteButton"),copyCode:$("#copyCodeButton"),settingsSummary:$("#roomSettingsSummary"),hostRole:$("#hostRole"),guestRole:$("#guestRole"),hostName:$("#hostName"),guestName:$("#guestName"),hostStatus:$("#hostStatus"),guestStatus:$("#guestStatus"),challengePicker:$("#challengeSongPicker"),challengeSearch:$("#challengeSongSearch"),challengeSuggestions:$("#challengeSuggestions"),challengeLock:$("#lockChallengeSongButton"),challengeStatus:$("#challengeSongStatus"),challengeWaiting:$("#challengeWaiting"),ready:$("#readyButton"),start:$("#startMatchButton"),leave:$("#leaveRoomButton"),lobbyMessage:$("#lobbyMessage"),game:$("#multiplayerGame"),challengeWatcher:$("#challengeWatcher"),roundLabel:$("#roundLabelMultiplayer"),matchScore:$("#matchScore"),opponentName:$("#opponentName"),opponentProgress:$("#opponentProgress"),coopLock:$("#coopLockStatus"),searchWrap:$("#multiplayerSearchWrap"),search:$("#multiplayerSongSearch"),suggestions:$("#multiplayerSuggestions"),guess:$("#multiplayerGuessButton"),guessStatus:$("#multiplayerGuessStatus"),gameLeave:$("#multiplayerLeaveButton"),coopDecision:$("#coopDecision"),coopChoices:$("#coopChoices"),coopDecisionStatus:$("#coopDecisionStatus"),gameMessage:$("#multiplayerGameMessage"),guessTimer:$("#guessTimer"),guessTimerValue:$("#guessTimerValue"),guessTimerBar:$("#guessTimerBar"),boardLayout:$("#versusBoardLayout"),ownBoard:$("#multiplayerOwnBoard"),boardCaption:$("#guessBoardCaption"),opponentBoard:$("#opponentBoard"),opponentBoardName:$("#opponentBoardName"),opponentFeedbackRows:$("#opponentFeedbackRows"),rows:$("#multiplayerGuessRows"),results:$("#roundResults"),resultTitle:$("#multiplayerResultTitle"),answer:$("#multiplayerAnswer"),comparison:$("#resultComparison"),resultSummary:$("#multiplayerResultSummary"),share:$("#multiplayerShareButton"),next:$("#nextRoundButton"),rematch:$("#rematchButton"),return:$("#returnMultiplayerButton"),chat:$("#roomChat"),chatMessages:$("#chatMessages"),chatInput:$("#chatInput"),chatSend:$("#chatSendButton"),chatStatus:$("#chatStatus")};
   const normalize=value=>String(value||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g," ").trim();
   const MAX_GUESSES=10;
-  const GUESS_TIME_MS=30000;
+  let timerSeconds=30;
   let mode="versus",matchLength=1,user=null,room=null,channel=null,selected=null,challengeSelected=null,history=[],challengeHistory=[],opponentHistory=[],matchSummary=[],messages=[],activeSuggestion=-1,challengeSuggestion=-1,autoSubmitting=false,guessDeadline=0,lastTimerKey="",timerAutoSubmitting=false;
 
   function showView(view){const multiplayer=view==="multiplayer";els.soloView.hidden=multiplayer;els.multiplayerView.hidden=!multiplayer;els.soloTab.classList.toggle("active",!multiplayer);els.multiplayerTab.classList.toggle("active",multiplayer);els.soloTab.setAttribute("aria-selected",String(!multiplayer));els.multiplayerTab.setAttribute("aria-selected",String(multiplayer));els.brandTagline.textContent=multiplayer?"two players · one mystery song":"guess the drain gang song · unlimited"}
@@ -28,6 +28,7 @@
     els.create.textContent=challenge?"create challenge room":coop?"create co-op room":"create game";
     els.join.textContent=challenge?"join challenge room":coop?"join co-op room":"join game";
     els.versusOptions.hidden=mode!=="versus";
+    els.blurRow.hidden=mode!=="versus";
     els.message.textContent="";
   }
   function setScreen(name){els.home.hidden=name!=="home";els.roomExperience.hidden=name==="home";els.lobby.hidden=name!=="lobby";els.game.hidden=name!=="game";els.results.hidden=name!=="results";if(name!=="game")stopGuessTimer()}
@@ -43,13 +44,13 @@
   function songById(id){return songs[Number(id)]||null}
   function roomUrl(){const url=new URL(location.href);url.searchParams.set("multiplayer",room.mode);url.searchParams.set("room",room.code);return url.toString()}
 
-  async function createRoom(){try{const name=playerName();if(!name)return setMessage("enter a display name",true);await ensureBackend();els.create.disabled=true;const code=await rpc("create_blaidle_room",{p_mode:mode,p_name:name,p_match_length:mode==="versus"?matchLength:1,p_catalog_size:songs.length});await enterRoom(code)}catch(error){setMessage(error.message||"could not create room",true)}finally{els.create.disabled=false}}
+  async function createRoom(){try{const name=playerName();if(!name)return setMessage("enter a display name",true);await ensureBackend();els.create.disabled=true;const code=await rpc("create_blaidle_room",{p_mode:mode,p_name:name,p_match_length:mode==="versus"?matchLength:1,p_catalog_size:songs.length,p_timer_seconds:timerSeconds,p_blur_answers:Boolean(els.blurAnswers.checked),p_highlight_close:Boolean(els.highlightClose.checked),p_show_arrows:Boolean(els.showArrows.checked)});await enterRoom(code)}catch(error){setMessage(error.message||"could not create room",true)}finally{els.create.disabled=false}}
   async function joinRoom(){try{const name=playerName();const code=els.joinCode.value.trim().toUpperCase();if(!name)return setMessage("enter a display name",true);if(code.length!==5)return setMessage("enter a five-character room code",true);await ensureBackend();els.join.disabled=true;await rpc("join_blaidle_room",{p_code:code,p_name:name});await enterRoom(code)}catch(error){setMessage(error.message||"could not join room",true)}finally{els.join.disabled=false}}
   async function enterRoom(code){await loadRoom(code);mode=room.mode;setMode(mode,true);history=[];challengeHistory=[];opponentHistory=[];matchSummary=[];messages=[];challengeSelected=null;resetGuessTimer();setScreen(room.status==="lobby"?"lobby":room.status==="playing"?"game":"results");subscribeRoom();history=await loadHistory();challengeHistory=await loadChallengeHistory();opponentHistory=await loadOpponentHistory();matchSummary=await loadMatchSummary();messages=await loadMessages();renderRoom();const url=new URL(location.href);url.searchParams.set("multiplayer",mode);url.searchParams.set("room",room.code);window.history.replaceState({},"",url)}
   async function loadRoom(code){const response=await client.from("blaidle_rooms").select("*").eq("code",code.toUpperCase()).single();if(response.error)throw response.error;room=response.data}
   async function loadHistory(){if(!room||room.status==="lobby")return[];try{return await rpc("get_blaidle_guess_history",{p_code:room.code})||[]}catch{return[]}}
   async function loadChallengeHistory(){if(!room||room.status==="lobby"||room.mode!=="challenge"||!isHost())return[];try{return await rpc("get_blaidle_challenge_guess_history",{p_code:room.code})||[]}catch{return[]}}
-  async function loadOpponentHistory(){if(!room||room.status==="lobby"||room.mode!=="versus")return[];try{return await rpc("get_blaidle_opponent_progress",{p_code:room.code})||[]}catch{return[]}}
+  async function loadOpponentHistory(){if(!room||room.status==="lobby"||room.mode!=="versus")return[];try{return await rpc(room.blur_answers===false?"get_blaidle_opponent_guess_history":"get_blaidle_opponent_progress",{p_code:room.code})||[]}catch{return[]}}
   async function loadMatchSummary(){if(!room||room.mode!=="versus"||room.status!=="match_results")return[];try{return await rpc("get_blaidle_match_summary",{p_code:room.code})||[]}catch{return[]}}
   async function loadMessages(){
     if(!room)return[];
@@ -99,6 +100,10 @@
     const host=isHost();
     const targetSet=Boolean(room.challenge_target_set);
     els.roomCode.textContent=room.code;
+    els.settingsSummary.innerHTML="";
+    const settingLabels=[Number(room.timer_seconds)===0?"timer: unlimited":`timer: ${room.timer_seconds||30}s`,room.highlight_close===false?"close hints: off":"close hints: on",room.show_arrows===false?"arrows: off":"arrows: on"];
+    if(room.mode==="versus")settingLabels.push(room.blur_answers===false?"opponent songs: visible":"opponent songs: blurred");
+    for(const label of settingLabels){const chip=document.createElement("span");chip.textContent=label;els.settingsSummary.appendChild(chip)}
     els.hostRole.textContent=challenge?"selector":"player 1";
     els.guestRole.textContent=challenge?"guesser":"player 2";
     els.hostName.textContent=room.host_name||"waiting...";
@@ -173,7 +178,11 @@
     els.boardLayout.classList.toggle("has-opponent",show);
     els.boardLayout.classList.remove("selector-view");
     if(!show)return;
+    const revealed=room.blur_answers===false;
+    els.opponentBoard.classList.toggle("revealed",revealed);
     els.opponentBoardName.textContent=otherName()||"opponent";
+    els.opponentBoard.querySelector(".opponent-board-heading .eyebrow").textContent=revealed?"opponent's revealed guesses":"opponent's hidden board";
+    els.opponentBoard.querySelector(".opponent-board-note").textContent=revealed?"song names visible · room setting":"feedback only · song names hidden";
     els.opponentFeedbackRows.innerHTML="";
     if(!opponentHistory.length){
       const empty=document.createElement("p");
@@ -182,29 +191,35 @@
       els.opponentFeedbackRows.appendChild(empty);
       return;
     }
-    opponentHistory.forEach((states,index)=>{
+    opponentHistory.forEach((item,index)=>{
+      const states=revealed?(item.feedback||[]):item;
+      const song=revealed?songById(item.song_id):null;
       const row=document.createElement("div");
-      row.className="opponent-feedback-row";
-      row.setAttribute("aria-label",`hidden guess ${index+1}: ${states.join(", ")}`);
+      row.className="opponent-feedback-row"+(revealed?" revealed-guess":"");
+      row.setAttribute("aria-label",revealed?`guess ${index+1}: ${song?.title||"unknown"}`:`hidden guess ${index+1}: ${states.join(", ")}`);
       const number=document.createElement("span");
       number.className="opponent-guess-number";
       number.textContent=String(index+1);
+      const body=document.createElement("div");
+      if(song){const title=document.createElement("strong");title.className="opponent-revealed-song";title.textContent=`${song.title} — ${song.artist}`;body.appendChild(title)}
       const cells=document.createElement("div");
       cells.className="opponent-feedback-cells";
       states.forEach(state=>{
         const cell=document.createElement("i");
-        cell.className=`opponent-feedback-cell opponent-${state}`;
+        cell.className=`opponent-feedback-cell opponent-${displayState(state)}`;
         cell.setAttribute("aria-hidden","true");
         cells.appendChild(cell);
       });
-      row.append(number,cells);
+      body.appendChild(cells);
+      row.append(number,body);
       els.opponentFeedbackRows.appendChild(row);
     });
   }
 
   function renderCoopDecision(){const ids=[room.coop_proposal_host,room.coop_proposal_guest];const same=ids[0]===ids[1];els.coopChoices.innerHTML="";for(const id of [...new Set(ids)]){const song=songById(id);const button=document.createElement("button");button.className="coop-choice";button.textContent=song?`${song.title} — ${song.artist}`:`song ${id}`;const ownConfirm=room[`${ownSide()}_confirm`];button.classList.toggle("selected",Number(ownConfirm)===Number(id));button.addEventListener("click",()=>confirmCoop(id));els.coopChoices.appendChild(button)}if(same){els.coopDecisionStatus.textContent="Both players chose the same song. Submitting...";if(isHost()&&!autoSubmitting){autoSubmitting=true;confirmCoop(ids[0],true)}}else{const hostVote=room.host_confirm,guestVote=room.guest_confirm;els.coopDecisionStatus.textContent=hostVote===null&&guestVote===null?"Both choices are revealed. Each player must select the same team answer.":hostVote!==null&&guestVote!==null&&hostVote!==guestVote?"You chose different answers. Choose again to agree.":"One choice is locked. Waiting for the other player."}}
-  function renderHistoryRow(item,index){const song=songById(item.song_id)||{title:"unknown",artist:"",features:"",album:"",year:"",track:""};const row=document.createElement("div");row.className="guess-grid guess-row"+(item.correct?" is-correct":"");row.style.animationDelay=`${index*35}ms`;const states=item.feedback||["far","far","far","far","far","far"];row.append(makeCell(song.title,"song",stateClass(states[0])),makeCell(song.artist,"artist",stateClass(states[1])),makeCell(song.features||"none","features",stateClass(states[2])),makeCell(song.album,"album",stateClass(states[3])),makeCell(song.year,"year",stateClass(states[4]),item.year_arrow),makeCell(song.track,"track #",stateClass(states[5]),item.track_arrow));return row}
-  function stateClass(state){return state==="exact"?"feedback-exact":state==="close"?"feedback-close":"feedback-far"}
+  function renderHistoryRow(item,index){const song=songById(item.song_id)||{title:"unknown",artist:"",features:"",album:"",year:"",track:""};const row=document.createElement("div");row.className="guess-grid guess-row"+(item.correct?" is-correct":"");row.style.animationDelay=`${index*35}ms`;const states=item.feedback||["far","far","far","far","far","far"];const arrows=room?.show_arrows===false?["",""]:[item.year_arrow,item.track_arrow];row.append(makeCell(song.title,"song",stateClass(states[0])),makeCell(song.artist,"artist",stateClass(states[1])),makeCell(song.features||"none","features",stateClass(states[2])),makeCell(song.album,"album",stateClass(states[3])),makeCell(song.year,"year",stateClass(states[4]),arrows[0]),makeCell(song.track,"track #",stateClass(states[5]),arrows[1]));return row}
+  function displayState(state){return state==="close"&&room?.highlight_close===false?"far":state}
+  function stateClass(state){state=displayState(state);return state==="exact"?"feedback-exact":state==="close"?"feedback-close":"feedback-far"}
   function makeCell(value,label,className="",arrow=""){const cell=document.createElement("div");cell.className=`cell ${className}`;cell.dataset.label=label;const text=document.createElement("span");text.textContent=value||"none";cell.appendChild(text);if(arrow){const a=document.createElement("span");a.className="arrow";a.textContent=arrow;cell.appendChild(a)}return cell}
 
   function renderChat(){
@@ -262,14 +277,15 @@
     if(els.guessTimer)els.guessTimer.hidden=true;
   }
   function syncGuessTimer(canGuess,count,ownLocked,deciding){
-    if(!canGuess||!room||room.status!=="playing"){
+    const duration=Number(room?.timer_seconds??30)*1000;
+    if(!canGuess||!room||room.status!=="playing"||duration<=0){
       stopGuessTimer();
       return;
     }
     const key=`${room.id}:${room.current_round}:${room.mode}:${count}:${ownLocked?1:0}:${deciding?1:0}`;
     if(lastTimerKey!==key||!guessDeadline){
       lastTimerKey=key;
-      guessDeadline=Date.now()+GUESS_TIME_MS;
+      guessDeadline=Date.now()+duration;
       timerAutoSubmitting=false;
     }
     els.guessTimer.hidden=false;
@@ -278,8 +294,10 @@
   function updateGuessTimer(){
     if(!room||room.status!=="playing"||!guessDeadline||els.guessTimer.hidden)return;
     const remaining=Math.max(0,Math.ceil((guessDeadline-Date.now())/1000));
-    els.guessTimerValue.textContent=`0:${String(remaining).padStart(2,"0")}`;
-    els.guessTimer.style.setProperty("--timer-progress",String(Math.max(0,Math.min(1,(guessDeadline-Date.now())/GUESS_TIME_MS))));
+    const minutes=Math.floor(remaining/60),seconds=remaining%60;
+    els.guessTimerValue.textContent=`${minutes}:${String(seconds).padStart(2,"0")}`;
+    const duration=Number(room.timer_seconds||30)*1000;
+    els.guessTimer.style.setProperty("--timer-progress",String(Math.max(0,Math.min(1,(guessDeadline-Date.now())/duration))));
     els.guessTimer.classList.toggle("urgent",remaining<=5);
     if(remaining<=0&&!timerAutoSubmitting)autoSubmitRandomGuess();
   }
@@ -442,6 +460,7 @@
   els.coopTab.addEventListener("click",()=>setMode("coop"));
   els.challengeTab.addEventListener("click",()=>setMode("challenge"));
   document.querySelectorAll("[data-rounds]").forEach(button=>button.addEventListener("click",()=>{matchLength=Number(button.dataset.rounds);document.querySelectorAll("[data-rounds]").forEach(item=>item.classList.toggle("active",item===button))}));
+  document.querySelectorAll("[data-timer]").forEach(button=>button.addEventListener("click",()=>{timerSeconds=Number(button.dataset.timer);document.querySelectorAll("[data-timer]").forEach(item=>item.classList.toggle("active",item===button))}));
   els.create.addEventListener("click",createRoom);
   els.join.addEventListener("click",joinRoom);
   els.joinCode.addEventListener("input",()=>els.joinCode.value=els.joinCode.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,5));
