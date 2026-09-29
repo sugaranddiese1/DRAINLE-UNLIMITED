@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#070707">
   <meta name="description" content="Play Blaidle in unlimited solo, competitive Versus, or two-player Co-op mode.">
   <title>blaidle · unlimited and multiplayer</title>
-  <link rel="stylesheet" href="./styles.css?v=20260929-chat-timer">
+  <link rel="stylesheet" href="./styles.css?v=20260929-challenge-reveal">
 </head>
 <body>
   <header class="site-header">
@@ -115,6 +115,7 @@
           <div id="multiplayerGameMessage" class="message" aria-live="polite"></div>
           <div class="versus-board-layout" id="versusBoardLayout">
             <div class="own-board" id="multiplayerOwnBoard">
+              <div class="board-caption" id="guessBoardCaption" hidden></div>
               <p class="table-scroll-hint">swipe to see all columns →</p>
               <div class="table-wrap"><div class="guess-grid grid-header" aria-hidden="true"><div>song</div><div>artist</div><div>features</div><div>album</div><div>year</div><div>track #</div></div><div id="multiplayerGuessRows" class="guess-rows"></div></div>
             </div>
@@ -163,10 +164,10 @@
     <h2>stats</h2>
     <div class="stats-grid"><div><strong id="playedStat">0</strong><span>played</span></div><div><strong id="winsStat">0</strong><span>wins</span></div><div><strong id="streakStat">0</strong><span>streak</span></div></div>
   </dialog>
-  <script src="./songs.js?v=20260929-chat-timer"></script>
-  <script src="./app.js?v=20260929-chat-timer"></script>
+  <script src="./songs.js?v=20260929-challenge-reveal"></script>
+  <script src="./app.js?v=20260929-challenge-reveal"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./supabase-config.js?v=20260929-chat-timer"></script>
-  <script src="./multiplayer.js?v=20260929-chat-timer"></script>
+  <script src="./supabase-config.js?v=20260929-challenge-reveal"></script>
+  <script src="./multiplayer.js?v=20260929-challenge-reveal"></script>
 </body>
 </html>
