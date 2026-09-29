@@ -361,6 +361,24 @@ language sql stable security definer set search_path=public as $$
   where r.code=upper(p_code) and g.round_number=r.current_round and (r.host_id=auth.uid() or r.guest_id=auth.uid()) and (g.shared or g.user_id=auth.uid())
 $$;
 
+create or replace function public.get_blaidle_challenge_guess_history(p_code text) returns jsonb
+language sql stable security definer set search_path=public as $fn$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'song_id',g.song_id,
+    'feedback',g.feedback->'states',
+    'year_arrow',g.feedback->>'year_arrow',
+    'track_arrow',g.feedback->>'track_arrow',
+    'correct',g.correct
+  ) order by g.guess_number),'[]'::jsonb)
+  from public.blaidle_guesses g
+  join public.blaidle_rooms r on r.id=g.room_id
+  where r.code=upper(trim(p_code))
+    and r.mode='challenge'
+    and r.host_id=auth.uid()
+    and g.round_number=r.current_round
+    and g.user_id=r.guest_id
+$fn$;
+
 create or replace function public.get_blaidle_opponent_progress(p_code text) returns jsonb
 language sql stable security definer set search_path=public as $fn$
   with room as (
@@ -458,5 +476,5 @@ language plpgsql security definer set search_path=public as $$
 begin delete from public.blaidle_rooms where code=upper(p_code) and (host_id=auth.uid() or guest_id=auth.uid()); end $$;
 
 revoke all on function public.blaidle_feedback(integer,integer) from public,anon,authenticated;
-revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) from public,anon;
-grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) to authenticated;
+revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) from public,anon;
+grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) to authenticated;
