@@ -82,11 +82,23 @@ create table if not exists public.blaidle_proposals (
   primary key(room_id,round_number,user_id)
 );
 
+create table if not exists public.blaidle_messages (
+  id bigint generated always as identity primary key,
+  room_id uuid not null references public.blaidle_rooms(id) on delete cascade,
+  user_id uuid not null,
+  sender_name text not null,
+  message text not null check (char_length(message) between 1 and 300),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists blaidle_messages_room_created_idx on public.blaidle_messages(room_id,created_at);
+
 alter table public.blaidle_rooms enable row level security;
 alter table public.blaidle_guesses enable row level security;
 alter table public.blaidle_targets enable row level security;
 alter table public.blaidle_proposals enable row level security;
 alter table public.blaidle_songs enable row level security;
+alter table public.blaidle_messages enable row level security;
 
 drop policy if exists "songs are readable" on public.blaidle_songs;
 create policy "songs are readable" on public.blaidle_songs for select using (true);
@@ -97,17 +109,30 @@ create policy "players read their own or shared guesses" on public.blaidle_guess
   user_id=auth.uid() or (shared and exists(select 1 from public.blaidle_rooms r where r.id=room_id and (r.host_id=auth.uid() or r.guest_id=auth.uid())))
 );
 
+drop policy if exists "room members read messages" on public.blaidle_messages;
+create policy "room members read messages" on public.blaidle_messages for select to authenticated using (
+  exists(select 1 from public.blaidle_rooms r where r.id=room_id and (r.host_id=auth.uid() or r.guest_id=auth.uid()))
+);
+
 revoke all on public.blaidle_targets from anon,authenticated;
 revoke all on public.blaidle_proposals from anon,authenticated;
+revoke all on public.blaidle_messages from anon;
+revoke insert,update,delete on public.blaidle_messages from authenticated;
 grant select on public.blaidle_songs to authenticated;
 grant select on public.blaidle_rooms to authenticated;
 grant select on public.blaidle_guesses to authenticated;
+grant select on public.blaidle_messages to authenticated;
 
 alter table public.blaidle_rooms replica identity full;
-do $$ begin
+do $ begin
   alter publication supabase_realtime add table public.blaidle_rooms;
 exception when duplicate_object then null;
-end $$;
+end $;
+
+do $ begin
+  alter publication supabase_realtime add table public.blaidle_messages;
+exception when duplicate_object then null;
+end $;
 
 create or replace function public.blaidle_touch_room() returns trigger language plpgsql as $$
 begin new.updated_at=now(); return new; end $$;
@@ -408,10 +433,30 @@ begin
 end
 $fn$;
 
+create or replace function public.send_blaidle_message(p_code text,p_message text) returns void
+language plpgsql security definer set search_path=public as $fn$
+declare v_room public.blaidle_rooms; v_name text; v_message text;
+begin
+  select * into v_room from public.blaidle_rooms where code=upper(trim(p_code));
+  if not found or (auth.uid()<>v_room.host_id and (v_room.guest_id is null or auth.uid()<>v_room.guest_id)) then
+    raise exception 'You are not in this room';
+  end if;
+  v_message:=trim(p_message);
+  if char_length(v_message) not between 1 and 300 then raise exception 'Message must be 1 to 300 characters'; end if;
+  if exists(
+    select 1 from public.blaidle_messages
+    where room_id=v_room.id and user_id=auth.uid() and created_at>now()-interval '1 second'
+  ) then raise exception 'Wait a moment before sending another message'; end if;
+  v_name:=case when v_room.host_id=auth.uid() then v_room.host_name else v_room.guest_name end;
+  insert into public.blaidle_messages(room_id,user_id,sender_name,message)
+  values(v_room.id,auth.uid(),coalesce(v_name,'player'),v_message);
+end
+$fn$;
+
 create or replace function public.leave_blaidle_room(p_code text) returns void
 language plpgsql security definer set search_path=public as $$
 begin delete from public.blaidle_rooms where code=upper(p_code) and (host_id=auth.uid() or guest_id=auth.uid()); end $$;
 
 revoke all on function public.blaidle_feedback(integer,integer) from public,anon,authenticated;
-revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) from public,anon;
-grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.leave_blaidle_room(text) to authenticated;
+revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) from public,anon;
+grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) to authenticated;
