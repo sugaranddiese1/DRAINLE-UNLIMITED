@@ -83,16 +83,34 @@ revoke execute on function public.submit_blaidle_versus_guess(text,integer),publ
 grant execute on function public.submit_blaidle_versus_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer) to authenticated;
 
 alter table public.blaidle_rooms add column if not exists challenge_target_set boolean not null default false;
+alter table public.blaidle_rooms add column if not exists timer_seconds integer not null default 30;
+alter table public.blaidle_rooms add column if not exists blur_answers boolean not null default true;
+alter table public.blaidle_rooms add column if not exists highlight_close boolean not null default true;
+alter table public.blaidle_rooms add column if not exists show_arrows boolean not null default true;
+alter table public.blaidle_rooms drop constraint if exists blaidle_rooms_timer_seconds_check;
+alter table public.blaidle_rooms add constraint blaidle_rooms_timer_seconds_check check (timer_seconds in (0,30,60,90,120));
 alter table public.blaidle_rooms drop constraint if exists blaidle_rooms_mode_check;
 alter table public.blaidle_rooms add constraint blaidle_rooms_mode_check check (mode in ('versus','coop','challenge'));
 
-create or replace function public.create_blaidle_room(p_mode text,p_name text,p_match_length integer,p_catalog_size integer) returns text
+drop function if exists public.create_blaidle_room(text,text,integer,integer);
+
+create or replace function public.create_blaidle_room(
+  p_mode text,
+  p_name text,
+  p_match_length integer,
+  p_catalog_size integer,
+  p_timer_seconds integer,
+  p_blur_answers boolean,
+  p_highlight_close boolean,
+  p_show_arrows boolean
+) returns text
 language plpgsql security definer set search_path=public as $fn$
 declare v_code text; tries integer:=0;
 begin
   if auth.uid() is null then raise exception 'Sign in is required'; end if;
   if p_mode not in ('versus','coop','challenge') then raise exception 'Invalid mode'; end if;
   if p_match_length not in (1,3,5) then raise exception 'Invalid match length'; end if;
+  if p_timer_seconds not in (0,30,60,90,120) then raise exception 'Invalid timer length'; end if;
   if char_length(trim(p_name)) not between 1 and 20 then raise exception 'Enter a display name'; end if;
   if p_catalog_size<>(select count(*) from public.blaidle_songs) then raise exception 'Song catalog needs to be synchronized'; end if;
   loop
@@ -101,11 +119,20 @@ begin
     tries:=tries+1;
     if tries>20 then raise exception 'Could not generate room code'; end if;
   end loop;
-  insert into public.blaidle_rooms(code,mode,match_length,catalog_size,host_id,host_name)
-  values(v_code,p_mode,case when p_mode='versus' then p_match_length else 1 end,p_catalog_size,auth.uid(),trim(p_name));
+  insert into public.blaidle_rooms(
+    code,mode,match_length,catalog_size,host_id,host_name,
+    timer_seconds,blur_answers,highlight_close,show_arrows
+  )
+  values(
+    v_code,p_mode,case when p_mode='versus' then p_match_length else 1 end,p_catalog_size,auth.uid(),trim(p_name),
+    p_timer_seconds,coalesce(p_blur_answers,true),coalesce(p_highlight_close,true),coalesce(p_show_arrows,true)
+  );
   return v_code;
 end
 $fn$;
+
+revoke execute on function public.create_blaidle_room(text,text,integer,integer,integer,boolean,boolean,boolean) from public,anon;
+grant execute on function public.create_blaidle_room(text,text,integer,integer,integer,boolean,boolean,boolean) to authenticated;
 
 create or replace function public.set_blaidle_ready(p_code text,p_ready boolean) returns void
 language plpgsql security definer set search_path=public as $fn$
@@ -197,6 +224,28 @@ begin
 end
 $fn$;
 
+create or replace function public.get_blaidle_opponent_guess_history(p_code text) returns jsonb
+language sql stable security definer set search_path=public as $fn$
+  with room as (
+    select * from public.blaidle_rooms
+    where code=upper(trim(p_code))
+      and mode='versus'
+      and blur_answers=false
+      and (host_id=auth.uid() or guest_id=auth.uid())
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'song_id',g.song_id,
+    'feedback',g.feedback->'states',
+    'year_arrow',g.feedback->>'year_arrow',
+    'track_arrow',g.feedback->>'track_arrow',
+    'correct',g.correct
+  ) order by g.guess_number),'[]'::jsonb)
+  from public.blaidle_guesses g cross join room r
+  where g.room_id=r.id
+    and g.round_number=r.current_round
+    and g.user_id=case when r.host_id=auth.uid() then r.guest_id else r.host_id end
+$fn$;
+
 create or replace function public.get_blaidle_challenge_guess_history(p_code text) returns jsonb
 language sql stable security definer set search_path=public as $fn$
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -260,8 +309,8 @@ begin
 end
 $fn$;
 
-revoke execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text) from public,anon;
-grant execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text) to authenticated;
+revoke execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_guess_history(text),public.get_blaidle_opponent_progress(text) from public,anon;
+grant execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_guess_history(text),public.get_blaidle_opponent_progress(text) to authenticated;
 
 -- Realtime room chat for Blaidle.
 create table if not exists public.blaidle_messages (
