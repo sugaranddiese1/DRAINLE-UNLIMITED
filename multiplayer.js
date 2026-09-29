@@ -4,10 +4,11 @@
   const configured=Boolean(config.url&&config.anonKey&&window.supabase?.createClient);
   const client=configured?window.supabase.createClient(config.url,config.anonKey):null;
   const $=selector=>document.querySelector(selector);
-  const els={soloTab:$("#soloTab"),multiplayerTab:$("#multiplayerTab"),soloView:$("#soloView"),multiplayerView:$("#multiplayerView"),brandTagline:$("#brandTagline"),versusTab:$("#versusTab"),coopTab:$("#coopTab"),challengeTab:$("#challengeTab"),home:$("#multiplayerHome"),modeLabel:$("#multiplayerModeLabel"),title:$("#multiplayerTitle"),description:$("#multiplayerDescription"),backendNotice:$("#backendNotice"),playerName:$("#playerName"),versusOptions:$("#versusOptions"),create:$("#createRoomButton"),join:$("#joinRoomButton"),joinCode:$("#joinCode"),message:$("#multiplayerMessage"),lobby:$("#roomLobby"),roomCode:$("#roomCode"),connection:$("#connectionStatus"),copyInvite:$("#copyInviteButton"),copyCode:$("#copyCodeButton"),hostRole:$("#hostRole"),guestRole:$("#guestRole"),hostName:$("#hostName"),guestName:$("#guestName"),hostStatus:$("#hostStatus"),guestStatus:$("#guestStatus"),challengePicker:$("#challengeSongPicker"),challengeSearch:$("#challengeSongSearch"),challengeSuggestions:$("#challengeSuggestions"),challengeLock:$("#lockChallengeSongButton"),challengeStatus:$("#challengeSongStatus"),challengeWaiting:$("#challengeWaiting"),ready:$("#readyButton"),start:$("#startMatchButton"),leave:$("#leaveRoomButton"),lobbyMessage:$("#lobbyMessage"),game:$("#multiplayerGame"),challengeWatcher:$("#challengeWatcher"),roundLabel:$("#roundLabelMultiplayer"),matchScore:$("#matchScore"),opponentName:$("#opponentName"),opponentProgress:$("#opponentProgress"),coopLock:$("#coopLockStatus"),searchWrap:$("#multiplayerSearchWrap"),search:$("#multiplayerSongSearch"),suggestions:$("#multiplayerSuggestions"),guess:$("#multiplayerGuessButton"),guessStatus:$("#multiplayerGuessStatus"),gameLeave:$("#multiplayerLeaveButton"),coopDecision:$("#coopDecision"),coopChoices:$("#coopChoices"),coopDecisionStatus:$("#coopDecisionStatus"),gameMessage:$("#multiplayerGameMessage"),boardLayout:$("#versusBoardLayout"),ownBoard:$("#multiplayerOwnBoard"),opponentBoard:$("#opponentBoard"),opponentBoardName:$("#opponentBoardName"),opponentFeedbackRows:$("#opponentFeedbackRows"),rows:$("#multiplayerGuessRows"),results:$("#roundResults"),resultTitle:$("#multiplayerResultTitle"),answer:$("#multiplayerAnswer"),comparison:$("#resultComparison"),resultSummary:$("#multiplayerResultSummary"),share:$("#multiplayerShareButton"),next:$("#nextRoundButton"),rematch:$("#rematchButton"),return:$("#returnMultiplayerButton")};
+  const els={soloTab:$("#soloTab"),multiplayerTab:$("#multiplayerTab"),soloView:$("#soloView"),multiplayerView:$("#multiplayerView"),brandTagline:$("#brandTagline"),versusTab:$("#versusTab"),coopTab:$("#coopTab"),challengeTab:$("#challengeTab"),home:$("#multiplayerHome"),roomExperience:$("#roomExperience"),modeLabel:$("#multiplayerModeLabel"),title:$("#multiplayerTitle"),description:$("#multiplayerDescription"),backendNotice:$("#backendNotice"),playerName:$("#playerName"),versusOptions:$("#versusOptions"),create:$("#createRoomButton"),join:$("#joinRoomButton"),joinCode:$("#joinCode"),message:$("#multiplayerMessage"),lobby:$("#roomLobby"),roomCode:$("#roomCode"),connection:$("#connectionStatus"),copyInvite:$("#copyInviteButton"),copyCode:$("#copyCodeButton"),hostRole:$("#hostRole"),guestRole:$("#guestRole"),hostName:$("#hostName"),guestName:$("#guestName"),hostStatus:$("#hostStatus"),guestStatus:$("#guestStatus"),challengePicker:$("#challengeSongPicker"),challengeSearch:$("#challengeSongSearch"),challengeSuggestions:$("#challengeSuggestions"),challengeLock:$("#lockChallengeSongButton"),challengeStatus:$("#challengeSongStatus"),challengeWaiting:$("#challengeWaiting"),ready:$("#readyButton"),start:$("#startMatchButton"),leave:$("#leaveRoomButton"),lobbyMessage:$("#lobbyMessage"),game:$("#multiplayerGame"),challengeWatcher:$("#challengeWatcher"),roundLabel:$("#roundLabelMultiplayer"),matchScore:$("#matchScore"),opponentName:$("#opponentName"),opponentProgress:$("#opponentProgress"),coopLock:$("#coopLockStatus"),searchWrap:$("#multiplayerSearchWrap"),search:$("#multiplayerSongSearch"),suggestions:$("#multiplayerSuggestions"),guess:$("#multiplayerGuessButton"),guessStatus:$("#multiplayerGuessStatus"),gameLeave:$("#multiplayerLeaveButton"),coopDecision:$("#coopDecision"),coopChoices:$("#coopChoices"),coopDecisionStatus:$("#coopDecisionStatus"),gameMessage:$("#multiplayerGameMessage"),guessTimer:$("#guessTimer"),guessTimerValue:$("#guessTimerValue"),guessTimerBar:$("#guessTimerBar"),boardLayout:$("#versusBoardLayout"),ownBoard:$("#multiplayerOwnBoard"),opponentBoard:$("#opponentBoard"),opponentBoardName:$("#opponentBoardName"),opponentFeedbackRows:$("#opponentFeedbackRows"),rows:$("#multiplayerGuessRows"),results:$("#roundResults"),resultTitle:$("#multiplayerResultTitle"),answer:$("#multiplayerAnswer"),comparison:$("#resultComparison"),resultSummary:$("#multiplayerResultSummary"),share:$("#multiplayerShareButton"),next:$("#nextRoundButton"),rematch:$("#rematchButton"),return:$("#returnMultiplayerButton"),chat:$("#roomChat"),chatMessages:$("#chatMessages"),chatInput:$("#chatInput"),chatSend:$("#chatSendButton"),chatStatus:$("#chatStatus")};
   const normalize=value=>String(value||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g," ").trim();
   const MAX_GUESSES=10;
-  let mode="versus",matchLength=1,user=null,room=null,channel=null,selected=null,challengeSelected=null,history=[],opponentHistory=[],matchSummary=[],activeSuggestion=-1,challengeSuggestion=-1,autoSubmitting=false;
+  const GUESS_TIME_MS=30000;
+  let mode="versus",matchLength=1,user=null,room=null,channel=null,selected=null,challengeSelected=null,history=[],opponentHistory=[],matchSummary=[],messages=[],activeSuggestion=-1,challengeSuggestion=-1,autoSubmitting=false,guessDeadline=0,lastTimerKey="",timerAutoSubmitting=false;
 
   function showView(view){const multiplayer=view==="multiplayer";els.soloView.hidden=multiplayer;els.multiplayerView.hidden=!multiplayer;els.soloTab.classList.toggle("active",!multiplayer);els.multiplayerTab.classList.toggle("active",multiplayer);els.soloTab.setAttribute("aria-selected",String(!multiplayer));els.multiplayerTab.setAttribute("aria-selected",String(multiplayer));els.brandTagline.textContent=multiplayer?"two players · one mystery song":"guess the drain gang song · unlimited"}
   function setMode(next,force=false){
@@ -29,7 +30,7 @@
     els.versusOptions.hidden=mode!=="versus";
     els.message.textContent="";
   }
-  function setScreen(name){els.home.hidden=name!=="home";els.lobby.hidden=name!=="lobby";els.game.hidden=name!=="game";els.results.hidden=name!=="results"}
+  function setScreen(name){els.home.hidden=name!=="home";els.roomExperience.hidden=name==="home";els.lobby.hidden=name!=="lobby";els.game.hidden=name!=="game";els.results.hidden=name!=="results";if(name!=="game")stopGuessTimer()}
   function setMessage(text,error=false){els.message.textContent=text;els.message.style.color=error?"var(--red-text)":""}
   function playerName(){const value=els.playerName.value.trim().slice(0,20);if(value)localStorage.setItem("blaidle-player-name",value);return value}
   async function ensureBackend(){if(!configured){els.backendNotice.hidden=false;els.backendNotice.textContent="Multiplayer needs the Supabase project values in supabase-config.js. Solo mode is still available.";throw new Error("multiplayer backend is not configured")}if(user)return user;const current=await client.auth.getSession();if(current.data.session)user=current.data.session.user;else{const signed=await client.auth.signInAnonymously();if(signed.error)throw signed.error;user=signed.data.user}return user}
@@ -44,14 +45,53 @@
 
   async function createRoom(){try{const name=playerName();if(!name)return setMessage("enter a display name",true);await ensureBackend();els.create.disabled=true;const code=await rpc("create_blaidle_room",{p_mode:mode,p_name:name,p_match_length:mode==="versus"?matchLength:1,p_catalog_size:songs.length});await enterRoom(code)}catch(error){setMessage(error.message||"could not create room",true)}finally{els.create.disabled=false}}
   async function joinRoom(){try{const name=playerName();const code=els.joinCode.value.trim().toUpperCase();if(!name)return setMessage("enter a display name",true);if(code.length!==5)return setMessage("enter a five-character room code",true);await ensureBackend();els.join.disabled=true;await rpc("join_blaidle_room",{p_code:code,p_name:name});await enterRoom(code)}catch(error){setMessage(error.message||"could not join room",true)}finally{els.join.disabled=false}}
-  async function enterRoom(code){await loadRoom(code);mode=room.mode;setMode(mode,true);history=[];opponentHistory=[];matchSummary=[];challengeSelected=null;setScreen(room.status==="lobby"?"lobby":room.status==="playing"?"game":"results");subscribeRoom();history=await loadHistory();opponentHistory=await loadOpponentHistory();matchSummary=await loadMatchSummary();renderRoom();const url=new URL(location.href);url.searchParams.set("multiplayer",mode);url.searchParams.set("room",room.code);window.history.replaceState({},"",url)}
+  async function enterRoom(code){await loadRoom(code);mode=room.mode;setMode(mode,true);history=[];opponentHistory=[];matchSummary=[];messages=[];challengeSelected=null;resetGuessTimer();setScreen(room.status==="lobby"?"lobby":room.status==="playing"?"game":"results");subscribeRoom();history=await loadHistory();opponentHistory=await loadOpponentHistory();matchSummary=await loadMatchSummary();messages=await loadMessages();renderRoom();const url=new URL(location.href);url.searchParams.set("multiplayer",mode);url.searchParams.set("room",room.code);window.history.replaceState({},"",url)}
   async function loadRoom(code){const response=await client.from("blaidle_rooms").select("*").eq("code",code.toUpperCase()).single();if(response.error)throw response.error;room=response.data}
   async function loadHistory(){if(!room||room.status==="lobby")return[];try{return await rpc("get_blaidle_guess_history",{p_code:room.code})||[]}catch{return[]}}
   async function loadOpponentHistory(){if(!room||room.status==="lobby"||!(room.mode==="versus"||(room.mode==="challenge"&&isHost())))return[];try{return await rpc("get_blaidle_opponent_progress",{p_code:room.code})||[]}catch{return[]}}
   async function loadMatchSummary(){if(!room||room.mode!=="versus"||room.status!=="match_results")return[];try{return await rpc("get_blaidle_match_summary",{p_code:room.code})||[]}catch{return[]}}
-  function subscribeRoom(){if(channel)client.removeChannel(channel);channel=client.channel(`blaidle-room-${room.code}`,{config:{presence:{key:user.id}}}).on("postgres_changes",{event:"*",schema:"public",table:"blaidle_rooms",filter:`code=eq.${room.code}`},async payload=>{if(payload.eventType==="DELETE"){room=null;history=[];opponentHistory=[];matchSummary=[];setScreen("home");setMessage("The other player closed the room.");return}room=payload.new;history=await loadHistory();opponentHistory=await loadOpponentHistory();matchSummary=await loadMatchSummary();renderRoom()}).on("presence",{event:"sync"},()=>{const count=Object.keys(channel.presenceState()).length;els.connection.textContent=count>1?"2 connected":"1 connected";els.connection.classList.toggle("connected",count>1)}).subscribe(async status=>{if(status==="SUBSCRIBED"){await channel.track({name:ownName(),online_at:new Date().toISOString()});els.connection.textContent="connected";els.connection.classList.add("connected")}else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"){els.connection.textContent="reconnecting";els.connection.classList.remove("connected")}})}
+  async function loadMessages(){
+    if(!room)return[];
+    const response=await client.from("blaidle_messages").select("id,user_id,sender_name,message,created_at").eq("room_id",room.id).order("created_at",{ascending:true}).limit(100);
+    return response.error?[]:(response.data||[]);
+  }
+  function subscribeRoom(){
+    if(channel)client.removeChannel(channel);
+    channel=client.channel(`blaidle-room-${room.code}`,{config:{presence:{key:user.id}}})
+      .on("postgres_changes",{event:"*",schema:"public",table:"blaidle_rooms",filter:`code=eq.${room.code}`},async payload=>{
+        if(payload.eventType==="DELETE"){
+          room=null;history=[];opponentHistory=[];matchSummary=[];messages=[];resetGuessTimer();setScreen("home");setMessage("The other player closed the room.");return;
+        }
+        room=payload.new;
+        history=await loadHistory();
+        opponentHistory=await loadOpponentHistory();
+        matchSummary=await loadMatchSummary();
+        renderRoom();
+      })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"blaidle_messages",filter:`room_id=eq.${room.id}`},payload=>{
+        if(!messages.some(item=>String(item.id)===String(payload.new.id)))messages.push(payload.new);
+        renderChat();
+      })
+      .on("presence",{event:"sync"},()=>{
+        const count=Object.keys(channel.presenceState()).length;
+        els.connection.textContent=count>1?"2 connected":"1 connected";
+        els.connection.classList.toggle("connected",count>1);
+      })
+      .subscribe(async status=>{
+        if(status==="SUBSCRIBED"){
+          await channel.track({name:ownName(),online_at:new Date().toISOString()});
+          els.connection.textContent="connected";
+          els.connection.classList.add("connected");
+          els.chatStatus.textContent="live";
+        }else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"){
+          els.connection.textContent="reconnecting";
+          els.connection.classList.remove("connected");
+          els.chatStatus.textContent="reconnecting";
+        }
+      });
+  }
 
-  function renderRoom(){if(!room)return;const status=room.status;if(status==="lobby"){setScreen("lobby");renderLobby()}else if(status==="playing"){setScreen("game");renderGame()}else{setScreen("results");renderResults()}}
+  function renderRoom(){if(!room)return;renderChat();const status=room.status;if(status==="lobby"){setScreen("lobby");renderLobby()}else if(status==="playing"){setScreen("game");renderGame()}else{setScreen("results");renderResults()}}
   function renderLobby(){
     const challenge=room.mode==="challenge";
     const host=isHost();
@@ -119,6 +159,7 @@
     els.coopLock.textContent="your guess locked ✓ · waiting for teammate...";
     els.coopDecision.hidden=!deciding;
     els.gameMessage.textContent=versus&&ownFinished?`You are ${room[`${ownSide()}_outcome`]}. Waiting for your opponent...`:"";
+    syncGuessTimer(!(selector||ownFinished||ownLocked||deciding),count,ownLocked,deciding);
     if(deciding)renderCoopDecision();else{els.coopChoices.innerHTML="";autoSubmitting=false}
   }
   function renderOpponentBoard(){
@@ -161,6 +202,97 @@
   function renderHistoryRow(item,index){const song=songById(item.song_id)||{title:"unknown",artist:"",features:"",album:"",year:"",track:""};const row=document.createElement("div");row.className="guess-grid guess-row"+(item.correct?" is-correct":"");row.style.animationDelay=`${index*35}ms`;const states=item.feedback||["far","far","far","far","far","far"];row.append(makeCell(song.title,"song",stateClass(states[0])),makeCell(song.artist,"artist",stateClass(states[1])),makeCell(song.features||"none","features",stateClass(states[2])),makeCell(song.album,"album",stateClass(states[3])),makeCell(song.year,"year",stateClass(states[4]),item.year_arrow),makeCell(song.track,"track #",stateClass(states[5]),item.track_arrow));return row}
   function stateClass(state){return state==="exact"?"feedback-exact":state==="close"?"feedback-close":"feedback-far"}
   function makeCell(value,label,className="",arrow=""){const cell=document.createElement("div");cell.className=`cell ${className}`;cell.dataset.label=label;const text=document.createElement("span");text.textContent=value||"none";cell.appendChild(text);if(arrow){const a=document.createElement("span");a.className="arrow";a.textContent=arrow;cell.appendChild(a)}return cell}
+
+  function renderChat(){
+    if(!els.chatMessages)return;
+    els.chatMessages.innerHTML="";
+    if(!messages.length){
+      const empty=document.createElement("p");
+      empty.className="chat-empty";
+      empty.textContent="no messages yet · say something";
+      els.chatMessages.appendChild(empty);
+      return;
+    }
+    for(const item of messages){
+      const article=document.createElement("article");
+      article.className="chat-message"+(user&&item.user_id===user.id?" own":"");
+      const header=document.createElement("div");
+      header.className="chat-message-header";
+      const name=document.createElement("strong");
+      name.textContent=item.sender_name||"player";
+      const time=document.createElement("span");
+      const date=new Date(item.created_at);
+      time.textContent=Number.isNaN(date.getTime())?"":date.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+      const body=document.createElement("p");
+      body.textContent=item.message||"";
+      header.append(name,time);
+      article.append(header,body);
+      els.chatMessages.appendChild(article);
+    }
+    requestAnimationFrame(()=>{els.chatMessages.scrollTop=els.chatMessages.scrollHeight});
+  }
+  async function sendChatMessage(){
+    const message=els.chatInput.value.trim();
+    if(!message||!room)return;
+    els.chatSend.disabled=true;
+    try{
+      await rpc("send_blaidle_message",{p_code:room.code,p_message:message});
+      els.chatInput.value="";
+      messages=await loadMessages();
+      renderChat();
+    }catch(error){
+      els.chatStatus.textContent=error.message||"message failed";
+    }finally{
+      els.chatSend.disabled=false;
+      els.chatInput.focus();
+    }
+  }
+  function resetGuessTimer(){
+    guessDeadline=0;
+    lastTimerKey="";
+    timerAutoSubmitting=false;
+    if(els.guessTimer)els.guessTimer.hidden=true;
+  }
+  function stopGuessTimer(){
+    guessDeadline=0;
+    if(els.guessTimer)els.guessTimer.hidden=true;
+  }
+  function syncGuessTimer(canGuess,count,ownLocked,deciding){
+    if(!canGuess||!room||room.status!=="playing"){
+      stopGuessTimer();
+      return;
+    }
+    const key=`${room.id}:${room.current_round}:${room.mode}:${count}:${ownLocked?1:0}:${deciding?1:0}`;
+    if(lastTimerKey!==key||!guessDeadline){
+      lastTimerKey=key;
+      guessDeadline=Date.now()+GUESS_TIME_MS;
+      timerAutoSubmitting=false;
+    }
+    els.guessTimer.hidden=false;
+    updateGuessTimer();
+  }
+  function updateGuessTimer(){
+    if(!room||room.status!=="playing"||!guessDeadline||els.guessTimer.hidden)return;
+    const remaining=Math.max(0,Math.ceil((guessDeadline-Date.now())/1000));
+    els.guessTimerValue.textContent=`0:${String(remaining).padStart(2,"0")}`;
+    els.guessTimer.style.setProperty("--timer-progress",String(Math.max(0,Math.min(1,(guessDeadline-Date.now())/GUESS_TIME_MS))));
+    els.guessTimer.classList.toggle("urgent",remaining<=5);
+    if(remaining<=0&&!timerAutoSubmitting)autoSubmitRandomGuess();
+  }
+  async function autoSubmitRandomGuess(){
+    if(timerAutoSubmitting||!room||room.status!=="playing")return;
+    const selector=room.mode==="challenge"&&isHost();
+    const locked=room.mode==="coop"&&room[`${ownSide()}_locked`];
+    const deciding=room.mode==="coop"&&room.coop_proposal_host!==null&&room.coop_proposal_guest!==null;
+    if(selector||locked||deciding)return stopGuessTimer();
+    const used=new Set(history.map(item=>Number(item.song_id)));
+    const available=songs.filter(song=>!used.has(song.id));
+    if(!available.length)return;
+    const song=available[Math.floor(Math.random()*available.length)];
+    timerAutoSubmitting=true;
+    els.gameMessage.textContent=`time expired · random guess: ${song.title}`;
+    await submitSong(song,true);
+  }
 
   function showChallengeSuggestions(){
     challengeSelected=null;
@@ -209,7 +341,27 @@
   function matches(query,song){const q=normalize(query);return q&&(normalize(song.title).includes(q)||normalize(song.artist).includes(q)||normalize(song.album).includes(q))}
   function showSuggestions(){selected=null;els.guess.disabled=true;activeSuggestion=-1;const query=els.search.value;if(!normalize(query)){els.suggestions.hidden=true;return}const used=new Set(history.map(item=>Number(item.song_id)));const found=songs.filter(song=>matches(query,song)&&!used.has(song.id)).slice(0,10);els.suggestions.innerHTML="";for(const song of found){const button=document.createElement("button");button.type="button";button.className="suggestion";button.setAttribute("role","option");button.innerHTML="<strong></strong><span></span>";button.querySelector("strong").textContent=song.title;button.querySelector("span").textContent=[song.artist,song.album,song.year].filter(Boolean).join(" · ");button.addEventListener("click",()=>selectSong(song));els.suggestions.appendChild(button)}els.suggestions.hidden=!found.length}
   function selectSong(song){selected=song;els.search.value=song.title;els.suggestions.hidden=true;els.guess.disabled=false;els.guess.focus()}
-  async function submitGuess(){if(!selected||!room)return;const song=selected;selected=null;els.search.value="";els.guess.disabled=true;try{if(room.mode==="versus")await rpc("submit_blaidle_versus_guess",{p_code:room.code,p_song_id:song.id});else if(room.mode==="challenge")await rpc("submit_blaidle_challenge_guess",{p_code:room.code,p_song_id:song.id});else await rpc("lock_blaidle_coop_proposal",{p_code:room.code,p_song_id:song.id});await refreshRoom()}catch(error){els.gameMessage.textContent=error.message||"guess could not be submitted"}}
+  async function submitSong(song,automatic=false){
+    if(!song||!room)return;
+    selected=null;
+    els.search.value="";
+    els.guess.disabled=true;
+    guessDeadline=0;
+    if(els.guessTimer)els.guessTimer.hidden=true;
+    try{
+      if(room.mode==="versus")await rpc("submit_blaidle_versus_guess",{p_code:room.code,p_song_id:song.id});
+      else if(room.mode==="challenge")await rpc("submit_blaidle_challenge_guess",{p_code:room.code,p_song_id:song.id});
+      else await rpc("lock_blaidle_coop_proposal",{p_code:room.code,p_song_id:song.id});
+      await refreshRoom();
+    }catch(error){
+      els.gameMessage.textContent=error.message||"guess could not be submitted";
+      if(automatic)guessDeadline=Date.now()+5000;
+    }finally{
+      timerAutoSubmitting=false;
+    }
+  }
+  function submitGuess(){if(selected)submitSong(selected,false)}
+
   async function confirmCoop(songId,automatic=false){try{await rpc("confirm_blaidle_coop_guess",{p_code:room.code,p_song_id:Number(songId)});if(!automatic)els.coopDecisionStatus.textContent="choice locked · waiting for teammate";await refreshRoom()}catch(error){els.gameMessage.textContent=error.message||"team choice could not be submitted";autoSubmitting=false}}
   async function refreshRoom(){await loadRoom(room.code);history=await loadHistory();opponentHistory=await loadOpponentHistory();matchSummary=await loadMatchSummary();renderRoom()}
 
@@ -263,9 +415,9 @@
 
   async function toggleReady(){try{const ready=room[`${ownSide()}_ready`];await rpc("set_blaidle_ready",{p_code:room.code,p_ready:!ready});await refreshRoom()}catch(error){els.lobbyMessage.textContent=error.message}}
   async function startMatch(){try{els.start.disabled=true;await rpc("start_blaidle_match",{p_code:room.code});await refreshRoom()}catch(error){els.lobbyMessage.textContent=error.message;els.start.disabled=false}}
-  async function nextRound(){try{await rpc("next_blaidle_round",{p_code:room.code});history=[];opponentHistory=[];await refreshRoom()}catch(error){els.resultSummary.textContent=error.message}}
-  async function rematch(){try{await rpc("rematch_blaidle",{p_code:room.code});history=[];opponentHistory=[];await refreshRoom()}catch(error){els.resultSummary.textContent=error.message}}
-  async function leaveRoom(){const code=room?.code;try{if(configured&&code)await rpc("leave_blaidle_room",{p_code:code})}catch{}if(channel&&client)client.removeChannel(channel);channel=null;room=null;history=[];opponentHistory=[];matchSummary=[];selected=null;setScreen("home");const url=new URL(location.href);url.searchParams.delete("room");url.searchParams.delete("multiplayer");window.history.replaceState({},"",url);setMode(mode)}
+  async function nextRound(){try{await rpc("next_blaidle_round",{p_code:room.code});history=[];opponentHistory=[];resetGuessTimer();await refreshRoom()}catch(error){els.resultSummary.textContent=error.message}}
+  async function rematch(){try{await rpc("rematch_blaidle",{p_code:room.code});history=[];opponentHistory=[];resetGuessTimer();await refreshRoom()}catch(error){els.resultSummary.textContent=error.message}}
+  async function leaveRoom(){const code=room?.code;try{if(configured&&code)await rpc("leave_blaidle_room",{p_code:code})}catch{}if(channel&&client)client.removeChannel(channel);channel=null;room=null;history=[];opponentHistory=[];matchSummary=[];messages=[];selected=null;resetGuessTimer();setScreen("home");const url=new URL(location.href);url.searchParams.delete("room");url.searchParams.delete("multiplayer");window.history.replaceState({},"",url);setMode(mode)}
   async function copyText(text,button){try{await navigator.clipboard.writeText(text);const old=button.textContent;button.textContent="copied!";setTimeout(()=>button.textContent=old,1400)}catch{els.lobbyMessage.textContent="could not copy"}}
   function shareText(){
     if(!room)return"";
@@ -305,8 +457,11 @@
   els.challengeSearch.addEventListener("input",showChallengeSuggestions);
   els.challengeSearch.addEventListener("keydown",event=>{const items=[...els.challengeSuggestions.querySelectorAll(".suggestion")];if(event.key==="ArrowDown"||event.key==="ArrowUp"){event.preventDefault();if(items.length){challengeSuggestion=(challengeSuggestion+(event.key==="ArrowDown"?1:-1)+items.length)%items.length;items.forEach((item,index)=>item.classList.toggle("active",index===challengeSuggestion));items[challengeSuggestion].scrollIntoView({block:"nearest"})}}else if(event.key==="Enter"){event.preventDefault();if(!els.challengeSuggestions.hidden&&challengeSuggestion>=0)items[challengeSuggestion].click();else if(challengeSelected)lockChallengeSong()}else if(event.key==="Escape")els.challengeSuggestions.hidden=true});
   els.challengeLock.addEventListener("click",lockChallengeSong);
+  els.chatSend.addEventListener("click",sendChatMessage);
+  els.chatInput.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();sendChatMessage()}});
   document.addEventListener("click",event=>{if(!event.target.closest("#multiplayerSearchWrap"))els.suggestions.hidden=true;if(!event.target.closest("#challengeSearchWrap"))els.challengeSuggestions.hidden=true});
 
+  setInterval(updateGuessTimer,250);
   els.playerName.value=localStorage.getItem("blaidle-player-name")||"";
   if(!configured){
     els.backendNotice.hidden=false;
