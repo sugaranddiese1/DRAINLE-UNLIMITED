@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#070707">
   <meta name="description" content="Play Blaidle in unlimited solo, competitive Versus, or two-player Co-op mode.">
   <title>blaidle · unlimited and multiplayer</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-challenge2">
+  <link rel="stylesheet" href="./styles.css?v=20260929-chat-timer">
 </head>
 <body>
   <header class="site-header">
@@ -74,6 +74,8 @@
         <p class="multiplayer-message" id="multiplayerMessage" aria-live="polite"></p>
       </section>
 
+      <div class="room-experience" id="roomExperience" hidden>
+        <div class="room-stage">
       <section id="roomLobby" class="multiplayer-card" hidden>
         <div class="room-header"><div><span class="eyebrow">room code</span><strong id="roomCode">-----</strong></div><span class="connection-pill" id="connectionStatus">connecting</span></div>
         <div class="invite-actions"><button class="secondary-action" id="copyInviteButton">copy invite link</button><button class="secondary-action" id="copyCodeButton">copy code</button></div>
@@ -104,6 +106,10 @@
             <div id="multiplayerSuggestions" class="suggestions" role="listbox" hidden></div>
           </div>
           <button id="multiplayerGuessButton" class="guess-button" disabled>guess</button>
+          <div class="guess-timer" id="guessTimer" hidden>
+            <div><span>automatic random guess in</span><strong id="guessTimerValue">0:30</strong></div>
+            <div class="guess-timer-track"><i id="guessTimerBar"></i></div>
+          </div>
           <div class="status-row"><span id="multiplayerGuessStatus">10 guesses remaining</span><button class="reset-button" id="multiplayerLeaveButton">leave room</button></div>
           <div id="coopDecision" class="coop-decision" hidden><span class="eyebrow">choose the team answer</span><div id="coopChoices" class="coop-choices"></div><p id="coopDecisionStatus"></p></div>
           <div id="multiplayerGameMessage" class="message" aria-live="polite"></div>
@@ -128,6 +134,18 @@
         <p class="completion-summary" id="multiplayerResultSummary"></p>
         <div class="completion-actions"><button class="share-results-button" id="multiplayerShareButton">share results</button><button class="play-another-button" id="nextRoundButton">next round</button><button class="play-another-button" id="rematchButton" hidden>rematch</button><button class="text-action" id="returnMultiplayerButton">return to multiplayer</button></div>
       </section>
+        </div>
+        <aside class="room-chat" id="roomChat" aria-label="Room chat">
+          <div class="room-chat-header"><div><span class="eyebrow">room chat</span><strong>live messages</strong></div><span id="chatStatus">connecting</span></div>
+          <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
+          <div class="chat-compose">
+            <label class="sr-only" for="chatInput">Message the room</label>
+            <input id="chatInput" maxlength="300" placeholder="message the room..." autocomplete="off">
+            <button id="chatSendButton" type="button">send</button>
+          </div>
+          <p class="chat-note">messages disappear when the room closes</p>
+        </aside>
+      </div>
     </section>
     <section class="legend" aria-label="Answer key">
       <span><i class="swatch exact"></i>exact</span><span><i class="swatch close"></i>close</span><span><i class="swatch far"></i>far</span><span>↑ answer is higher</span><span>↓ answer is lower</span>
@@ -145,10 +163,10 @@
     <h2>stats</h2>
     <div class="stats-grid"><div><strong id="playedStat">0</strong><span>played</span></div><div><strong id="winsStat">0</strong><span>wins</span></div><div><strong id="streakStat">0</strong><span>streak</span></div></div>
   </dialog>
-  <script src="./songs.js?v=20260925-challenge2"></script>
-  <script src="./app.js?v=20260925-challenge2"></script>
+  <script src="./songs.js?v=20260929-chat-timer"></script>
+  <script src="./app.js?v=20260929-chat-timer"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./supabase-config.js?v=20260925-challenge2"></script>
-  <script src="./multiplayer.js?v=20260925-challenge2"></script>
+  <script src="./supabase-config.js?v=20260929-chat-timer"></script>
+  <script src="./multiplayer.js?v=20260929-chat-timer"></script>
 </body>
 </html>
