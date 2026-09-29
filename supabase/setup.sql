@@ -45,6 +45,10 @@ create table if not exists public.blaidle_rooms (
   host_confirm integer references public.blaidle_songs(id),
   guest_confirm integer references public.blaidle_songs(id),
   challenge_target_set boolean not null default false,
+  timer_seconds integer not null default 30 check (timer_seconds in (0,30,60,90,120)),
+  blur_answers boolean not null default true,
+  highlight_close boolean not null default true,
+  show_arrows boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -159,13 +163,25 @@ language sql stable security definer set search_path=public as $$
   ) from public.blaidle_songs g cross join public.blaidle_songs t where g.id=p_guess and t.id=p_target
 $$;
 
-create or replace function public.create_blaidle_room(p_mode text,p_name text,p_match_length integer,p_catalog_size integer) returns text
+drop function if exists public.create_blaidle_room(text,text,integer,integer);
+
+create or replace function public.create_blaidle_room(
+  p_mode text,
+  p_name text,
+  p_match_length integer,
+  p_catalog_size integer,
+  p_timer_seconds integer,
+  p_blur_answers boolean,
+  p_highlight_close boolean,
+  p_show_arrows boolean
+) returns text
 language plpgsql security definer set search_path=public as $fn$
 declare v_code text; tries integer:=0;
 begin
   if auth.uid() is null then raise exception 'Sign in is required'; end if;
   if p_mode not in ('versus','coop','challenge') then raise exception 'Invalid mode'; end if;
   if p_match_length not in (1,3,5) then raise exception 'Invalid match length'; end if;
+  if p_timer_seconds not in (0,30,60,90,120) then raise exception 'Invalid timer length'; end if;
   if char_length(trim(p_name)) not between 1 and 20 then raise exception 'Enter a display name'; end if;
   if p_catalog_size<>(select count(*) from public.blaidle_songs) then raise exception 'Song catalog needs to be synchronized'; end if;
   loop
@@ -174,8 +190,14 @@ begin
     tries:=tries+1;
     if tries>20 then raise exception 'Could not generate room code'; end if;
   end loop;
-  insert into public.blaidle_rooms(code,mode,match_length,catalog_size,host_id,host_name)
-  values(v_code,p_mode,case when p_mode='versus' then p_match_length else 1 end,p_catalog_size,auth.uid(),trim(p_name));
+  insert into public.blaidle_rooms(
+    code,mode,match_length,catalog_size,host_id,host_name,
+    timer_seconds,blur_answers,highlight_close,show_arrows
+  )
+  values(
+    v_code,p_mode,case when p_mode='versus' then p_match_length else 1 end,p_catalog_size,auth.uid(),trim(p_name),
+    p_timer_seconds,coalesce(p_blur_answers,true),coalesce(p_highlight_close,true),coalesce(p_show_arrows,true)
+  );
   return v_code;
 end
 $fn$;
@@ -361,6 +383,28 @@ language sql stable security definer set search_path=public as $$
   where r.code=upper(p_code) and g.round_number=r.current_round and (r.host_id=auth.uid() or r.guest_id=auth.uid()) and (g.shared or g.user_id=auth.uid())
 $$;
 
+create or replace function public.get_blaidle_opponent_guess_history(p_code text) returns jsonb
+language sql stable security definer set search_path=public as $fn$
+  with room as (
+    select * from public.blaidle_rooms
+    where code=upper(trim(p_code))
+      and mode='versus'
+      and blur_answers=false
+      and (host_id=auth.uid() or guest_id=auth.uid())
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'song_id',g.song_id,
+    'feedback',g.feedback->'states',
+    'year_arrow',g.feedback->>'year_arrow',
+    'track_arrow',g.feedback->>'track_arrow',
+    'correct',g.correct
+  ) order by g.guess_number),'[]'::jsonb)
+  from public.blaidle_guesses g cross join room r
+  where g.room_id=r.id
+    and g.round_number=r.current_round
+    and g.user_id=case when r.host_id=auth.uid() then r.guest_id else r.host_id end
+$fn$;
+
 create or replace function public.get_blaidle_challenge_guess_history(p_code text) returns jsonb
 language sql stable security definer set search_path=public as $fn$
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -476,5 +520,5 @@ language plpgsql security definer set search_path=public as $$
 begin delete from public.blaidle_rooms where code=upper(p_code) and (host_id=auth.uid() or guest_id=auth.uid()); end $$;
 
 revoke all on function public.blaidle_feedback(integer,integer) from public,anon,authenticated;
-revoke execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) from public,anon;
-grant execute on function public.create_blaidle_room(text,text,integer,integer),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) to authenticated;
+revoke execute on function public.create_blaidle_room(text,text,integer,integer,integer,boolean,boolean,boolean),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) from public,anon;
+grant execute on function public.create_blaidle_room(text,text,integer,integer,integer,boolean,boolean,boolean),public.join_blaidle_room(text,text),public.set_blaidle_ready(text,boolean),public.set_blaidle_challenge_song(text,integer),public.start_blaidle_match(text),public.submit_blaidle_versus_guess(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.lock_blaidle_coop_proposal(text,integer),public.confirm_blaidle_coop_guess(text,integer),public.get_blaidle_guess_history(text),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_guess_history(text),public.get_blaidle_opponent_progress(text),public.get_blaidle_match_summary(text),public.next_blaidle_round(text),public.rematch_blaidle(text),public.send_blaidle_message(text,text),public.leave_blaidle_room(text) to authenticated;
