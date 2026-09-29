@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#070707">
   <meta name="description" content="Play Blaidle in unlimited solo, competitive Versus, or two-player Co-op mode.">
   <title>blaidle · unlimited and multiplayer</title>
-  <link rel="stylesheet" href="./styles.css?v=20260929-challenge-reveal">
+  <link rel="stylesheet" href="./styles.css?v=20260929-room-settings">
 </head>
 <body>
   <header class="site-header">
@@ -59,14 +59,39 @@
         <div id="backendNotice" class="backend-notice" hidden></div>
         <label class="field-label" for="playerName">display name</label>
         <input class="text-field" id="playerName" maxlength="20" autocomplete="nickname" placeholder="your name">
-        <div id="versusOptions" class="match-options">
-          <span>match length</span>
-          <div class="segmented-control">
-            <button class="segment active" data-rounds="1">1 round</button>
-            <button class="segment" data-rounds="3">best of 3</button>
-            <button class="segment" data-rounds="5">best of 5</button>
+        <section class="room-settings" id="roomSettings" aria-labelledby="roomSettingsTitle">
+          <div class="room-settings-heading"><span class="eyebrow">room setup</span><strong id="roomSettingsTitle">settings</strong></div>
+          <div class="setting-group">
+            <span class="setting-label">timer length</span>
+            <div class="segmented-control timer-control" id="timerOptions" aria-label="Timer length">
+              <button type="button" class="segment active" data-timer="30">30s</button>
+              <button type="button" class="segment" data-timer="60">60s</button>
+              <button type="button" class="segment" data-timer="90">90s</button>
+              <button type="button" class="segment" data-timer="120">120s</button>
+              <button type="button" class="segment" data-timer="0">unlimited</button>
+            </div>
           </div>
-        </div>
+          <label class="setting-toggle" id="blurAnswersRow">
+            <span><strong>blur opponent guesses</strong><small>Hide their song names in Versus.</small></span>
+            <input type="checkbox" id="blurAnswersSetting" checked><i aria-hidden="true"></i>
+          </label>
+          <label class="setting-toggle">
+            <span><strong>highlight close guesses</strong><small>Turn off to show close cells as red instead of yellow.</small></span>
+            <input type="checkbox" id="highlightCloseSetting" checked><i aria-hidden="true"></i>
+          </label>
+          <label class="setting-toggle">
+            <span><strong>direction arrows</strong><small>Show whether the answer is higher or lower.</small></span>
+            <input type="checkbox" id="showArrowsSetting" checked><i aria-hidden="true"></i>
+          </label>
+          <div id="versusOptions" class="match-options">
+            <span>match length</span>
+            <div class="segmented-control">
+              <button type="button" class="segment active" data-rounds="1">1 round</button>
+              <button type="button" class="segment" data-rounds="3">best of 3</button>
+              <button type="button" class="segment" data-rounds="5">best of 5</button>
+            </div>
+          </div>
+        </section>
         <div class="lobby-actions">
           <button class="primary-action" id="createRoomButton">create game</button>
           <div class="join-row"><input class="text-field room-code-input" id="joinCode" maxlength="5" placeholder="room code" aria-label="Room code"><button class="secondary-action" id="joinRoomButton">join game</button></div>
@@ -79,6 +104,7 @@
       <section id="roomLobby" class="multiplayer-card" hidden>
         <div class="room-header"><div><span class="eyebrow">room code</span><strong id="roomCode">-----</strong></div><span class="connection-pill" id="connectionStatus">connecting</span></div>
         <div class="invite-actions"><button class="secondary-action" id="copyInviteButton">copy invite link</button><button class="secondary-action" id="copyCodeButton">copy code</button></div>
+        <div class="room-settings-summary" id="roomSettingsSummary" aria-label="Room settings"></div>
         <div class="player-list"><div class="player-card"><span id="hostRole">player 1</span><strong id="hostName">waiting...</strong><em id="hostStatus">not ready</em></div><div class="player-card"><span id="guestRole">player 2</span><strong id="guestName">waiting for player</strong><em id="guestStatus">not ready</em></div></div>
         <div class="challenge-song-picker" id="challengeSongPicker" hidden>
           <span class="eyebrow">choose the secret song</span>
@@ -164,10 +190,10 @@
     <h2>stats</h2>
     <div class="stats-grid"><div><strong id="playedStat">0</strong><span>played</span></div><div><strong id="winsStat">0</strong><span>wins</span></div><div><strong id="streakStat">0</strong><span>streak</span></div></div>
   </dialog>
-  <script src="./songs.js?v=20260929-challenge-reveal"></script>
-  <script src="./app.js?v=20260929-challenge-reveal"></script>
+  <script src="./songs.js?v=20260929-room-settings"></script>
+  <script src="./app.js?v=20260929-room-settings"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./supabase-config.js?v=20260929-challenge-reveal"></script>
-  <script src="./multiplayer.js?v=20260929-challenge-reveal"></script>
+  <script src="./supabase-config.js?v=20260929-room-settings"></script>
+  <script src="./multiplayer.js?v=20260929-room-settings"></script>
 </body>
 </html>
