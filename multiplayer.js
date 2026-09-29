@@ -355,7 +355,7 @@
       await refreshRoom();
     }catch(error){
       els.gameMessage.textContent=error.message||"guess could not be submitted";
-      if(automatic)guessDeadline=Date.now()+5000;
+      if(automatic){guessDeadline=Date.now()+5000;els.guessTimer.hidden=false;updateGuessTimer()}
     }finally{
       timerAutoSubmitting=false;
     }
