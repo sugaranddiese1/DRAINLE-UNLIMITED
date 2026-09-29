@@ -197,6 +197,24 @@ begin
 end
 $fn$;
 
+create or replace function public.get_blaidle_challenge_guess_history(p_code text) returns jsonb
+language sql stable security definer set search_path=public as $fn$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'song_id',g.song_id,
+    'feedback',g.feedback->'states',
+    'year_arrow',g.feedback->>'year_arrow',
+    'track_arrow',g.feedback->>'track_arrow',
+    'correct',g.correct
+  ) order by g.guess_number),'[]'::jsonb)
+  from public.blaidle_guesses g
+  join public.blaidle_rooms r on r.id=g.room_id
+  where r.code=upper(trim(p_code))
+    and r.mode='challenge'
+    and r.host_id=auth.uid()
+    and g.round_number=r.current_round
+    and g.user_id=r.guest_id
+$fn$;
+
 create or replace function public.get_blaidle_opponent_progress(p_code text) returns jsonb
 language sql stable security definer set search_path=public as $fn$
   with room as (
@@ -242,8 +260,8 @@ begin
 end
 $fn$;
 
-revoke execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_opponent_progress(text) from public,anon;
-grant execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_opponent_progress(text) to authenticated;
+revoke execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text) from public,anon;
+grant execute on function public.set_blaidle_challenge_song(text,integer),public.submit_blaidle_challenge_guess(text,integer),public.get_blaidle_challenge_guess_history(text),public.get_blaidle_opponent_progress(text) to authenticated;
 
 -- Realtime room chat for Blaidle.
 create table if not exists public.blaidle_messages (
